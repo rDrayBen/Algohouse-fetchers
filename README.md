@@ -1,9 +1,9 @@
 # Algohouse-fetchers
 
 Here are fetchers for listed down exchanges to get trades, snapshots and deltas for all available currencies on certain exchange:
- WhiteBit(python, websocket)
- Huobi(python, websocket)
- BitMart(python, websocket)
+ 1. WhiteBit(python, websocket)
+ 2. Huobi(python, websocket)
+ 3. BitMart(python, websocket)
  
  
 Rules for writting fetchers:
