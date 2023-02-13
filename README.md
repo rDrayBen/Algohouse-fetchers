@@ -14,7 +14,7 @@ Rules for writting fetchers:
   4. divide code in functions(use main function as a start fucntion)
   5. comment your code and use meaningful names for functions and variables
   6. don`t push in main
-  7. create your own branch for your file like '<your surname>-<your firstname>'
+  7. create your own branch for your file like '<your exchange name>-exchange'
   8. name your fetcher file in the same way
   9. don`t forget to write that your fetcher is taken here https://docs.google.com/spreadsheets/d/1-H__DoZUpnFQVFgJ8vkQAWFqBcY6ROOTWN-IEE9wwj4/edit#gid=0
  
