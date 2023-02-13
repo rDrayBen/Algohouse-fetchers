@@ -19,7 +19,7 @@ def print_trade(data):
     side = "S"
     if data['txn'].find("SELL") == -1:
         side = "B"
-    print("!", round(time.time()*1000), data['sym'].replace("_", "-"), side, data['rat'], data['amt'], end="\n")
+    print("!", round(time.time()*1000), data['sym'].replace("_", "-"), side, data['rat'], float(data['amt']), end="\n")
 
 def print_orderbook(data, symbol_):
     bids_update_data = []
@@ -39,13 +39,14 @@ def print_orderbook(data, symbol_):
             print("$", round(time.time() * 1000), symbol_, "S","|".join(str(i[2]) + "@" + str(i[1]) for i in asks_update_data),
                   end="\n")
     else:
-        print("$", round(time.time() * 1000), symbol_, "B",
-              "|".join(str(i[2]) + "@" + str(i[1]) for i in data['data'][1]), "R",
-              end="\n")
-
-        print("$", round(time.time() * 1000), symbol_, "S",
-                  "|".join(str(i[2]) + "@" + str(i[1]) for i in data['data'][2]), "R",
+        if data != []:
+            print("$", round(time.time() * 1000), symbol_, "B",
+                  "|".join(str(i[2]) + "@" + str(i[1]) for i in data['data'][1]), "R",
                   end="\n")
+
+            print("$", round(time.time() * 1000), symbol_, "S",
+                      "|".join(str(i[2]) + "@" + str(i[1]) for i in data['data'][2]), "R",
+                      end="\n")
 
 
 response = requests.get(API_URL + API_SYMBOLS)
