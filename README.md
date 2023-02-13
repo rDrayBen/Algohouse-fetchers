@@ -4,6 +4,7 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
  1. WhiteBit(python, websocket)
  2. Huobi(python, websocket)
  3. BitMart(python, websocket)
+ 4. Poloniex(python, websocket)
  
  
 Rules for writting fetchers:
