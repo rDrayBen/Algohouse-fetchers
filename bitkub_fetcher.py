@@ -19,7 +19,7 @@ def print_trade(data):
     side = "S"
     if data['txn'].find("SELL") == -1:
         side = "B"
-    print("!", round(time.time()*1000), data['sym'].replace("_", "-"), side, data['rat'], float(data['amt']), end="\n")
+    print("!", round(time.time()*1000), data['sym'], side, data['rat'], "{:f}".format(data['amt']).rstrip('0').rstrip('.'), end="\n")
 
 def print_orderbook(data, symbol_):
     bids_update_data = []
@@ -33,20 +33,24 @@ def print_orderbook(data, symbol_):
 
     if bids_update_data != [] or asks_update_data != []:
         if bids_update_data != []:
-            print("$", round(time.time()*1000), symbol_, "B","|".join(str(i[2]) + "@" + str(i[1]) for i in bids_update_data),
+            print("$", round(time.time()*1000), symbol_, "B",
+                  "|".join("{:f}".format(i[2]) + "@" + "{:f}".format(i[1]).rstrip('0').rstrip('.') for i in bids_update_data),
                   end="\n")
         if asks_update_data != []:
-            print("$", round(time.time() * 1000), symbol_, "S","|".join(str(i[2]) + "@" + str(i[1]) for i in asks_update_data),
+            print("$", round(time.time() * 1000), symbol_, "S",
+                  "|".join("{:f}".format(i[2]) + "@" + "{:f}".format(i[1]).rstrip('0').rstrip('.') for i in asks_update_data),
                   end="\n")
     else:
         if data != []:
             print("$", round(time.time() * 1000), symbol_, "B",
-                  "|".join(str(i[2]) + "@" + str(i[1]) for i in data['data'][1]), "R",
+                  "|".join("{:f}".format(i[2]) + "@" + "{:f}".format(i[1]).rstrip('0').rstrip('.') for i in
+                           data['data'][1]), "R",
                   end="\n")
 
             print("$", round(time.time() * 1000), symbol_, "S",
-                      "|".join(str(i[2]) + "@" + str(i[1]) for i in data['data'][2]), "R",
-                      end="\n")
+                  "|".join("{:f}".format(i[2]) + "@" + "{:f}".format(i[1]).rstrip('0').rstrip('.') for i in
+                           data['data'][2]),"R",
+                  end="\n")
 
 
 response = requests.get(API_URL + API_SYMBOLS)
@@ -54,8 +58,7 @@ symbols = [x['symbol'] for x in response.json()['result']]
 symbols_id = [x['id'] for x in response.json()['result']]
 trade_messages = [create_trades_chanels(x) for x in symbols]
 orderbook_messages = [create_orderbook_chanels(x) for x in symbols_id]
-symbols_ = {x['id']: x['symbol'].replace("_", "-") for x in response.json()['result']}
-
+symbols_ = {x['id']: x['symbol'] for x in response.json()['result']}
 
 async def handle_socket(uri, ):
     async with websockets.connect(uri) as websocket:
