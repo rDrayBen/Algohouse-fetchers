@@ -53,41 +53,50 @@ def get_order_books_and_deltas(message):
                 print(order_answer + pq, flush=True)
 
 
-async def main():
-    amount = 0
-    async with websockets.connect(WS_URL, ping_interval=None) as ws:
+async def heartbeat(ws):
+    await ws.send(json.dumps({
+                "event": "ping"
+            }))
+    await asyncio.sleep(5)
+
+
+async def subscribe(ws):
+    await ws.send(json.dumps({
+        "event": "subscribe",
+        "channel": ["trades"],
+        "symbols": ["all"]
+    }))
+
+    for symbol in list_currencies:
         await ws.send(json.dumps({
             "event": "subscribe",
-            "channel": ["trades"],
-            "symbols": ["all"]
+            "channel": ["book_lv2"],
+            "symbols": [f"{symbol.split('_')[0].lower()}_{symbol.split('_')[1].lower()}"]
         }))
 
-        for symbol in list_currencies:
-            await ws.send(json.dumps({
-                "event": "subscribe",
-                "channel": ["book_lv2"],
-                "symbols": [f"{symbol.split('_')[0].lower()}_{symbol.split('_')[1].lower()}"]
-            }))
 
+async def main():
+    async with websockets.connect(WS_URL, ping_interval=None) as ws:
+        # create task to subscribe to all trades, order books and order book updates 
+        sub_task = asyncio.create_task(subscribe(ws))
+        # execute sub task
+        await sub_task
+
+        # create task to keep connection alive
+        pong = asyncio.create_task(heartbeat(ws))
+        # execute heartbeat task
+        await pong
         while True:
-            time.sleep(0.01)
+            time.sleep(0.001)
             data = await ws.recv()
-            amount += 1
             try:
-
                 dataJSON = json.loads(data)
                 if dataJSON['channel'] and dataJSON['channel'] == "trades":
                     get_trades(dataJSON)
                 elif dataJSON['channel'] and dataJSON['channel'] == "book_lv2":
                     get_order_books_and_deltas(dataJSON)
-                await ws.send(json.dumps({
-                    "event": "ping"
-                }))
-                if amount > 700:
-                    await ws.send(json.dumps({
-                        "event": "ping"
-                    }))
-                    amount = 0
+                else:
+                    print(dataJSON)
             except:
                 pass
 
