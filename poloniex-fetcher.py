@@ -54,10 +54,11 @@ def get_order_books_and_deltas(message):
 
 
 async def heartbeat(ws):
-    await ws.send(json.dumps({
-                "event": "ping"
-            }))
-    await asyncio.sleep(5)
+    while True:
+        await ws.send(json.dumps({
+                    "event": "ping"
+                }))
+        await asyncio.sleep(5)
 
 
 async def subscribe(ws):
@@ -76,18 +77,16 @@ async def subscribe(ws):
 
 
 async def main():
-    async with websockets.connect(WS_URL, ping_interval=None) as ws:
-        # create task to subscribe to all trades, order books and order book updates 
+    async with websockets.connect(WS_URL) as ws:
+        # create task to subscribe to all trades, order books and order book updates
         sub_task = asyncio.create_task(subscribe(ws))
         # execute sub task
         await sub_task
 
         # create task to keep connection alive
         pong = asyncio.create_task(heartbeat(ws))
-        # execute heartbeat task
-        await pong
+
         while True:
-            time.sleep(0.001)
             data = await ws.recv()
             try:
                 dataJSON = json.loads(data)
@@ -97,8 +96,8 @@ async def main():
                     get_order_books_and_deltas(dataJSON)
                 else:
                     print(dataJSON)
-            except:
-                pass
+            except Exception as e:
+                print(f"Exception {e} occured")
 
 
 asyncio.run(main())
