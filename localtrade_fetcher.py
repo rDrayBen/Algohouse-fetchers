@@ -14,7 +14,6 @@ WS_URL = 'wss://localtrade.cc/ws'
 # list of all instruments
 for currency in currencies['result']:
     list_currencies.append(currency['name'])
-print(list_currencies)
 
 
 def get_unix_time():
