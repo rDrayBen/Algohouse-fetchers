@@ -14,6 +14,7 @@ WS_URL = 'wss://localtrade.cc/ws'
 # list of all instruments
 for currency in currencies['result']:
     list_currencies.append(currency['name'])
+print(list_currencies)
 
 
 def get_unix_time():
@@ -34,7 +35,7 @@ def get_trades(message):
 def get_order_books_and_deltas(message):
     order_data = message
     # check if data is valid
-    if 'params' in order_data and len(order_data['params']) > 1:
+    if 'params' in order_data and len(order_data['params']) > 0:
         # check if there is orders for SALE
         if 'asks' in order_data['params'][1]:
             # format output
@@ -56,33 +57,36 @@ def get_order_books_and_deltas(message):
                 print(order_answer + pq)
 
 
+# subscribe to all trades and order books
+async def subscribe(ws):
+    await ws.send(json.dumps({
+        "method": "deals.subscribe",
+        "params": list_currencies
+    }))
+
+    for currency in list_currencies:
+        await ws.send(json.dumps({
+            "method": "depth.subscribe",
+            "params":
+                [
+                    currency,  # market
+                    100,  # limit
+                    "0"  # interval
+                ]
+        }))
+        await asyncio.sleep(0.1)
+
+
 async def main():
     # create connection with server
-    # async with websockets.connect(WS_URL) as ws:
     async for ws in websockets.connect(WS_URL):
-        # subscribe to all trades
-        await ws.send(json.dumps({
-            "method": "deals.subscribe",
-            "params": list_currencies
-        }))
-
-        # subscribe to all order books
-        for currency in list_currencies:
-            await ws.send(json.dumps({
-                "method": "depth.subscribe",
-                "params":
-                    [
-                        currency,  # market
-                        100,  # limit
-                        "0"  # interval
-                    ]
-            }))
+        
+        task = asyncio.create_task(subscribe(ws))
 
         try:
             while True:
                 # receive data
                 data = await ws.recv()
-
                 try:
                     dataJSON = json.loads(data)
                     # check if data is valid
@@ -91,11 +95,11 @@ async def main():
                         if dataJSON['method'] == 'deals.update':
                             get_trades(dataJSON)
                         # check if data is about order books
-                        elif dataJSON['method'] == 'depth.update':
+                        if dataJSON['method'] == 'depth.update':
                             get_order_books_and_deltas(dataJSON)
 
                 except Exception as e:
-                    pass
+                    print(f"Error: {e}")
 
         # keep connection alive
         except websockets.exceptions.ConnectionClosedOK as e:
