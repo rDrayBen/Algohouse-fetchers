@@ -77,27 +77,31 @@ async def subscribe(ws):
 
 
 async def main():
-    async with websockets.connect(WS_URL) as ws:
-        # create task to subscribe to all trades, order books and order book updates
-        sub_task = asyncio.create_task(subscribe(ws))
-        # execute sub task
-        await sub_task
+    try:
+        async with websockets.connect(WS_URL) as ws:
+            # create task to subscribe to all trades, order books and order book updates
+            sub_task = asyncio.create_task(subscribe(ws))
+            # execute sub task
+            await sub_task
 
-        # create task to keep connection alive
-        pong = asyncio.create_task(heartbeat(ws))
+            # create task to keep connection alive
+            pong = asyncio.create_task(heartbeat(ws))
 
-        while True:
-            data = await ws.recv()
-            try:
-                dataJSON = json.loads(data)
-                if dataJSON['channel'] and dataJSON['channel'] == "trades":
-                    get_trades(dataJSON)
-                elif dataJSON['channel'] and dataJSON['channel'] == "book_lv2":
-                    get_order_books_and_deltas(dataJSON)
-                else:
-                    print(dataJSON)
-            except Exception as e:
-                print(f"Exception {e} occured")
+            while True:
+                data = await ws.recv()
+                try:
+                    dataJSON = json.loads(data)
+                    if dataJSON['channel'] and dataJSON['channel'] == "trades":
+                        get_trades(dataJSON)
+                    elif dataJSON['channel'] and dataJSON['channel'] == "book_lv2":
+                        get_order_books_and_deltas(dataJSON)
+                    else:
+                        print(dataJSON)
+                except Exception as e:
+                    print(f"Exception {e} occurred")
+                    ws.close()
+    except Exception as conn_e:
+        print(f"WARNING: connection exception {conn_e} occurred")
 
 
 asyncio.run(main())
