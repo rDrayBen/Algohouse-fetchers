@@ -107,7 +107,7 @@ async def main():
                         print(dataJSON)
                 except Exception as e:
                     print(f"Exception {e} occurred")
-                    ws.close()
+                    # ws.close()
     except Exception as conn_e:
         print(f"WARNING: connection exception {conn_e} occurred")
 
