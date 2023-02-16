@@ -36,7 +36,7 @@ def get_order_books_and_deltas(message, update):
     # check if bids array is not Null
     if message['data']['bid']:
         order_answer = '$ ' + str(get_unix_time()) + ' ' + coin_name + ' B '
-        pq = '|'.join(f"{elem[0]}@{elem[2]}"
+        pq = '|'.join(f"{elem[2]}@{elem[0]}"
                       for elem in message['data']['bid'])
         # check if the input data is full order book or just update
         if update:
@@ -49,7 +49,7 @@ def get_order_books_and_deltas(message, update):
     # check if asks array is not Null
     if message['data']['ask']:
         order_answer = '$ ' + str(get_unix_time()) + ' ' + coin_name + ' S '
-        pq = '|'.join(f"{elem[0]}@{elem[2]}"
+        pq = '|'.join(f"{elem[2]}@{elem[0]}"
                       for elem in message['data']['ask'])
         # check if the input data is full order book or just update
         if update:
