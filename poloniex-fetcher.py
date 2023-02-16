@@ -33,7 +33,7 @@ def get_order_books_and_deltas(message):
         if order_data['data'][0]['bids']:
             order_answer = '$ ' + str(get_unix_time()) + ' ' + order_data['data'][0]['symbol'].split('_')[0] + '-' + \
                            order_data['data'][0]['symbol'].split('_')[1] + ' B '
-            pq = '|'.join(f"{elem[0]}@{elem[1]}"
+            pq = '|'.join(f"{elem[1]}@{elem[0]}"
                           for elem in order_data['data'][0]['bids'])
             if order_data['action'] == "snapshot":
                 print(order_answer + pq + ' R', flush=True)
@@ -45,7 +45,7 @@ def get_order_books_and_deltas(message):
         if order_data['data'][0]['asks']:
             order_answer = '$ ' + str(get_unix_time()) + ' ' + order_data['data'][0]['symbol'].split('_')[0] + '-' + \
                            order_data['data'][0]['symbol'].split('_')[1] + ' S '
-            pq = '|'.join(f"{elem[0]}@{elem[1]}"
+            pq = '|'.join(f"{elem[1]}@{elem[0]}"
                           for elem in order_data['data'][0]['asks'])
             if order_data['action'] == "snapshot":
                 print(order_answer + pq + ' R', flush=True)
