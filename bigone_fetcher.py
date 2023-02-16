@@ -50,17 +50,17 @@ def print_trades(data):
 def print_orderbooks(data):
     try:
         if "depthSnapshot" in data:
-            print("$", round(time.time() * 1000), data['depthSnapshot']['depth']['market'],
+            print("$", round(time.time() * 1000), data['depthSnapshot']['depth']['market'], "B",
                   '|'.join(x['amount'] + "@" + x['price'] for x in data['depthSnapshot']['depth']['bids']), "R", end="\n")
-            print("$", round(time.time() * 1000), data['depthSnapshot']['depth']['market'],
+            print("$", round(time.time() * 1000), data['depthSnapshot']['depth']['market'], "S",
                   '|'.join(x['amount'] + "@" + x['price'] for x in data['depthSnapshot']['depth']['asks']), "R", end="\n")
 
         elif "depthUpdate" in data:
             if data['depthUpdate']['depth']['bids'] != []:
-                print("$", round(time.time() * 1000), data['depthUpdate']['depth']['market'],
+                print("$", round(time.time() * 1000), data['depthUpdate']['depth']['market'], "B",
                       '|'.join(x['amount']+"@"+x['price'] for x in data['depthUpdate']['depth']['bids']), end="\n")
             if data['depthUpdate']['depth']['asks'] != []:
-                print("$", round(time.time() * 1000), data['depthUpdate']['depth']['market'],
+                print("$", round(time.time() * 1000), data['depthUpdate']['depth']['market'], "S",
                       '|'.join(x['amount'] + "@" + x['price'] for x in data['depthUpdate']['depth']['asks']), end="\n")
     except:
         pass
