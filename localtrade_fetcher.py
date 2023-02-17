@@ -77,32 +77,33 @@ async def subscribe(ws):
 
 
 async def main():
-    # create connection with server
-    async for ws in websockets.connect(WS_URL):
-        
-        task = asyncio.create_task(subscribe(ws))
+    for i in list_currencies:
+        # create connection with server
+        async for ws in websockets.connect(WS_URL):
+            task = asyncio.create_task(subscribe(ws))
 
-        try:
-            while True:
-                # receive data
-                data = await ws.recv()
-                try:
-                    dataJSON = json.loads(data)
-                    # check if data is valid
-                    if 'method' in dataJSON:
-                        # check if data is about trades
-                        if dataJSON['method'] == 'deals.update':
-                            get_trades(dataJSON)
-                        # check if data is about order books
-                        if dataJSON['method'] == 'depth.update':
-                            get_order_books_and_deltas(dataJSON)
+            start_time = time.time()
+            try:
+                while True:
+                    # receive data
+                    data = await ws.recv()
+                    try:
+                        dataJSON = json.loads(data)
+                        # check if data is valid
+                        if 'method' in dataJSON:
+                            # check if data is about trades
+                            if dataJSON['method'] == 'deals.update' and (time.time() - start_time) > 30:
+                                get_trades(dataJSON)
+                            # check if data is about order books
+                            if dataJSON['method'] == 'depth.update':
+                                get_order_books_and_deltas(dataJSON)
 
-                except Exception as e:
-                    print(f"Error: {e}")
+                    except Exception as e:
+                        print(f"Error: {e}")
 
-        # keep connection alive
-        except websockets.exceptions.ConnectionClosedOK as e:
-            continue
+            # keep connection alive
+            except websockets.exceptions.ConnectionClosedOK as e:
+                continue
 
 
 asyncio.run(main())
