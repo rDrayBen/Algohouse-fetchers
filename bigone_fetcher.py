@@ -1,42 +1,34 @@
 import json
-import websocket
+import websockets
 import time
 import asyncio
 import requests
 
-API_URL = "https://big.one/api/v3" # REST server main url
-API_SYMBOLS = "/asset_pairs"  # Take all pairs from ticker price
-WS_URL = "wss://big.one/ws/v2"  # Websocket server main url
+API_URL = "https://big.one/api/v3"
+API_SYMBOLS = "/asset_pairs"
+WS_URL = "wss://big.one/ws/v2"
+TIMEOUT_SEND = 0.01
 
 def create_trade_request(id, symbol):
-    """
-    Takes two required params
-    id - it`s websocket chanel id
-    symbol - it`s websocket chanel instrument aka BTC-USDT
-
-    Function creates new message to websocket server to take latest trades
-    """
     treade_request = json.dumps({"requestId": str(id),
                                  "subscribeMarketTradesRequest": {"market": symbol}})
     return treade_request
 
 def create_orderbook_requets(id, symbol):
-    """
-     Takes two required params
-     id - it`s websocket chanel id
-     symbol - it`s websocket chanel instrument aka BTC-USDT
-
-     Function creates new message to websocket server to take orderbooks or deltas
-     """
     depth_request = json.dumps({"requestId": str(id),
                         "subscribeMarketDepthRequest":{"market":symbol}})
     return depth_request
 
+pairs = requests.get(API_URL + API_SYMBOLS)
+symbols = [x['name'] for x in pairs.json()['data']]
+trade_messages = []
+orderbook_messages = []
+
+for i in range(len(symbols)):
+    trade_messages.append(create_trade_request(i, symbols[i]))
+    orderbook_messages.append(create_orderbook_requets(len(symbols)+i, symbols[i]))
+
 def print_trades(data):
-    """
-    data - received last trade dictionary
-    print recent trades
-    """
     try:
         if data["tradeUpdate"]["trade"]["takerSide"] == 'BID':
             print("!", round(time.time() * 1000), data["tradeUpdate"]["trade"]["market"],
@@ -66,39 +58,22 @@ def print_orderbooks(data):
         pass
 
 async def main():
-    pairs = requests.get(API_URL + API_SYMBOLS)  # REST request to API to get tickets and theirs symbols
-    symbols = [x['name'] for x in pairs.json()['data']]  # Get all pairs aka BTC-USD etc.
-    trade_messages = []
-    orderbook_messages = []
-
-    # Iterating and creating new json messages to websocket server
-    for i in range(len(symbols)):
-        trade_messages.append(create_trade_request(i, symbols[i]))
-        orderbook_messages.append(create_orderbook_requets(len(symbols)+i, symbols[i]))
-
-    try:
-        # Connecting to websocket server
-        ws = websocket.WebSocket()
-        ws.connect(url=WS_URL, header={"Sec-WebSocket-Protocol":"json"})
-
-        # Send messages to server (maximum 500 messages per 10 secs). AVG time of working 4-7 secs.
+    async with websockets.connect(uri=WS_URL, subprotocols=['graphql-ws'],
+                                      extra_headers={"Sec-WebSocket-Protocol":"json"}) as ws:
         for i in range(len(symbols)):
-            ws.send(trade_messages[i])
-            ws.send(orderbook_messages[i])
-            time.sleep(0.01)
+            await ws.send(trade_messages[i])
+            await ws.send(orderbook_messages[i])
+            time.sleep(TIMEOUT_SEND)
 
-        # Reciving latest trades and snapshots with deltas in byte format and loads it with json
         while True:
             try:
-                data = ws.recv()
+                data = await ws.recv()
                 decoded_data = data.decode("utf-8")
                 dicted_data = json.loads(decoded_data)
                 if "tradeUpdate" in dicted_data:
                     print_trades(dicted_data)
                 if "depthSnapshot" in dicted_data or "depthUpdate" in dicted_data:
                     print_orderbooks(dicted_data)
-            except:
-                pass
-    except:
-        print("Error")
+            except KeyboardInterrupt:
+                exit(0)
 asyncio.run(main())
