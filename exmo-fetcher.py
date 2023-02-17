@@ -81,9 +81,9 @@ async def subscribe(ws):
 
 
 async def main():
-    try:
-        # create connection with server via base ws url
-        async with websockets.connect(WS_URL, ping_interval=None) as ws:
+    # create connection with server via base ws url
+    async for ws in websockets.connect(WS_URL, ping_interval=None):
+        try:
             sub_task = asyncio.create_task(subscribe(ws))
             await sub_task
             # create task to keep connection alive
@@ -108,8 +108,8 @@ async def main():
                 except Exception as e:
                     print(f"Exception {e} occurred")
                     # ws.close()
-    except Exception as conn_e:
-        print(f"WARNING: connection exception {conn_e} occurred")
+        except Exception as conn_e:
+            print(f"WARNING: connection exception {conn_e} occurred")
 
 
 # run main function
