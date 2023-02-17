@@ -12,7 +12,7 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
  
 Rules for writting fetchers:
   1. use python(later maybe go)
-  2. use websocket(sdk also may be used if it is more productive)
+  2. use websockets lib(sdk also may be used if it is more productive)
   3. use asyncio(instead of threading to reduce load on servers)
   4. divide code in functions(use main function as a start fucntion)
   5. comment your code and use meaningful names for functions and variables
