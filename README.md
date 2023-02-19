@@ -9,6 +9,7 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
  6. BitKub(python, websocket)
  7. Tidex(python, websocket) - fixing
  8. WOO(python, websocket)
+ 9. EXMO(python, websocket)
  
 Rules for writting fetchers:
   1. use python(later maybe go)
