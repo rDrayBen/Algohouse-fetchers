@@ -60,62 +60,73 @@ def get_order_books_and_deltas(message, update):
             print(order_answer + pq + ' R', flush=True)
 
 
+async def heartbeat(ws):
+    while True:
+        await ws.send(json.dumps({
+            'event': "pong",
+            "ts": get_unix_time()
+        }))
+        await asyncio.sleep(5)
+
+
+async def subscribe(ws):
+    # subscribe for listed topics
+    for symbol in list_currencies:
+        # subscribe to all trades
+        await ws.send(json.dumps({
+            "id": f"{UI}",
+            "topic": f"SPOT_{symbol}@trade",
+            "event": "subscribe"
+        }))
+        # subscribe to all order books
+        await ws.send(json.dumps({
+            "id": f"{UI}",
+            "topic": f"SPOT_{symbol}@orderbook",
+            "event": "subscribe"
+        }))
+        # subscribe to all order book updates
+        await ws.send(json.dumps({
+            "id": f"{UI}",
+            "topic": f"SPOT_{symbol}@orderbookupdate",
+            "event": "subscribe"
+        }))
+
+
 async def main():
-    amount = 0
-
     # create connection with server via base ws url
-    async with websockets.connect(WS_URL) as ws:
-        # subscribe for listed topics
-        for symbol in list_currencies:
-            # subscribe to all trades
-            await ws.send(json.dumps({
-                "id": f"{UI}",
-                "topic": f"SPOT_{symbol}@trade",
-                "event": "subscribe"
-            }))
-            # subscribe to all order books
-            await ws.send(json.dumps({
-                "id": f"{UI}",
-                "topic": f"SPOT_{symbol}@orderbook",
-                "event": "subscribe"
-            }))
-            # subscribe to all order book updates
-            await ws.send(json.dumps({
-                "id": f"{UI}",
-                "topic": f"SPOT_{symbol}@orderbookupdate",
-                "event": "subscribe"
-            }))
-
-        while True:
-            # receiving data from server
-            data = await ws.recv()
-            amount += 1
-            try:
+    async for ws in websockets.connect(WS_URL, ping_interval=None):
+        try:
+            sub_task = asyncio.create_task(subscribe(ws))
+            await sub_task
+            # create task to keep connection alive
+            pong = asyncio.create_task(heartbeat(ws))
+            while True:
+                # receiving data from server
+                data = await ws.recv()
                 # change format of received data to json format
                 dataJSON = json.loads(data)
-                # check if received data is about trades
-                if 'trade' in dataJSON['topic']:
-                    get_trades(dataJSON['data'])
-                # check if received data is about order books
-                elif 'orderbookupdate' in dataJSON['topic']:
-                    get_order_books_and_deltas(dataJSON['data'], update=True)
-                # check if received data is about updates on order book
-                elif 'orderbook' in dataJSON['topic']:
-                    get_order_books_and_deltas(dataJSON['data'], update=False)
-                # sending ping to keep connection alive
-                elif dataJSON['event'] == 'ping':
-                    await ws.send(json.dumps({
-                        'event': "pong",
-                        "ts": get_unix_time()
-                    }))
-                if amount > 700:
-                    await ws.send(json.dumps({
-                        'event': "pong",
-                        "ts": get_unix_time()
-                    }))
-                    amount = 0
-            except:
-                pass
+                try:
+                    # check if received data is about trades
+                    if 'trade' in dataJSON['topic']:
+                        get_trades(dataJSON['data'])
+                    # check if received data is about order books
+                    elif 'orderbookupdate' in dataJSON['topic']:
+                        get_order_books_and_deltas(dataJSON['data'], update=True)
+                    # check if received data is about updates on order book
+                    elif 'orderbook' in dataJSON['topic']:
+                        get_order_books_and_deltas(dataJSON['data'], update=False)
+                    # sending ping to keep connection alive
+                    elif dataJSON['event'] == 'ping':
+                        await ws.send(json.dumps({
+                            'event': "pong",
+                            "ts": get_unix_time()
+                        }))
+                    else:
+                        print(dataJSON)
+                except Exception as e:
+                    print(f"Exception {e} occurred")
+        except Exception as conn_e:
+            print(f"WARNING: connection exception {conn_e} occurred")
 
 # run main function
 asyncio.run(main())
