@@ -1,0 +1,112 @@
+import json
+import requests
+import websockets
+import time
+import asyncio
+
+currency_url = 'https://sapi.xt.com/v4/public/symbol'
+answer = requests.get(currency_url)
+currencies = answer.json()
+list_currencies = list()
+WS_URL = 'wss://stream.xt.com/public'
+
+for element in currencies["result"]["symbols"]:
+	if element["state"] == "ONLINE":
+		list_currencies.append(element["symbol"])
+
+
+def get_unix_time():
+	return round(time.time() * 1000)
+
+
+def get_trades(var):
+	trade_data = var
+	print('!', get_unix_time(), trade_data['data']['s'],
+		  "B" if trade_data['data']["b"] else "S", trade_data['data']['p'],
+		  trade_data['data']["q"], flush=True)
+
+
+def get_order_books(var, depth_update):
+	order_data = var
+	if 'a' in order_data['data'] and len(order_data["data"]["a"]) != 0:
+		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['data']['s'] + ' S '
+		pq = "|".join(el[0] + "@" + el[1] for el in order_data["data"]["a"])
+		answer = order_answer + pq
+		if (depth_update == True):
+			print(answer)
+		else:
+			print(answer + " R")
+
+	if 'b' in order_data['data'] and len(order_data["data"]["b"]) != 0:
+		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['data']['s'] + ' B '
+		pq = "|".join(el[0] + "@" + el[1] for el in order_data["data"]["b"])
+		answer = order_answer + pq
+		if (depth_update == True):
+			print(answer)
+		else:
+			print(answer + " R")
+
+
+async def heartbeat(ws):
+	while True:
+		await ws.send(json.dumps({
+			"event": "ping"
+		}))
+		await asyncio.sleep(5)
+
+
+async def main():
+	async for ws in websockets.connect(WS_URL, ping_interval=None):
+		try:
+			pong = asyncio.create_task(heartbeat(ws))
+			for i in range(len(list_currencies)):
+				await ws.send(json.dumps({
+					"method": "subscribe",
+					"params": [
+						f"trade@{list_currencies[i]}"
+					],
+					"id": "123"
+				}))
+
+				await ws.send(json.dumps({
+					"method": "subscribe",
+					"params": [
+						f"depth@{list_currencies[i]},50"
+					],
+					"id": "123"
+				}))
+
+				await ws.send(json.dumps({
+					"method": "subscribe",
+					"params": [
+						f"depth_update@{list_currencies[i]}"
+					],
+					"id": "123"
+				}))
+
+			while True:
+				data = await ws.recv()
+
+				try:
+					dataJSON = json.loads(data)
+
+					if dataJSON['topic'] == 'trade':
+						get_trades(dataJSON)
+
+					elif dataJSON['topic'] == 'depth_update':
+						get_order_books(dataJSON, depth_update=True)
+
+					elif dataJSON['topic'] == 'depth':
+						get_order_books(dataJSON, depth_update=False)
+
+					else:
+						print(dataJSON)
+
+				except Exception as ex:
+					print(f"Exception {ex} occurred")
+
+		except Exception as conn_ex:
+			print(f"Connection exception {conn_ex} occurred")
+
+
+asyncio.run(main())
