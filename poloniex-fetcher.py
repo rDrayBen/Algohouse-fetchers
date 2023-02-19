@@ -77,8 +77,8 @@ async def subscribe(ws):
 
 
 async def main():
-    try:
-        async with websockets.connect(WS_URL) as ws:
+    async for ws in websockets.connect(WS_URL, ping_interval=None):
+        try:
             # create task to subscribe to all trades, order books and order book updates
             sub_task = asyncio.create_task(subscribe(ws))
             # execute sub task
@@ -99,9 +99,8 @@ async def main():
                         print(dataJSON)
                 except Exception as e:
                     print(f"Exception {e} occurred")
-                    # ws.close()
-    except Exception as conn_e:
-        print(f"WARNING: connection exception {conn_e} occurred")
+        except Exception as conn_e:
+            print(f"WARNING: connection exception {conn_e} occurred")
 
 
 asyncio.run(main())
