@@ -58,22 +58,28 @@ def print_orderbooks(data):
         pass
 
 async def main():
-    async with websockets.connect(uri=WS_URL, subprotocols=['graphql-ws'],
-                                      extra_headers={"Sec-WebSocket-Protocol":"json"}) as ws:
-        for i in range(len(symbols)):
-            await ws.send(trade_messages[i])
-            await ws.send(orderbook_messages[i])
-            time.sleep(TIMEOUT_SEND)
+    async for ws in websockets.connect(uri=WS_URL, subprotocols=['graphql-ws'],
+                                      extra_headers={"Sec-WebSocket-Protocol":"json"}):
+        try:
+            for i in range(len(symbols)):
+                await ws.send(trade_messages[i])
+                await ws.send(orderbook_messages[i])
+                time.sleep(TIMEOUT_SEND)
 
-        while True:
-            try:
-                data = await ws.recv()
-                decoded_data = data.decode("utf-8")
-                dicted_data = json.loads(decoded_data)
-                if "tradeUpdate" in dicted_data:
-                    print_trades(dicted_data)
-                if "depthSnapshot" in dicted_data or "depthUpdate" in dicted_data:
-                    print_orderbooks(dicted_data)
-            except KeyboardInterrupt:
-                exit(0)
+            while True:
+                try:
+                    data = await ws.recv()
+                    decoded_data = data.decode("utf-8")
+                    dicted_data = json.loads(decoded_data)
+                    if "tradeUpdate" in dicted_data:
+                        print_trades(dicted_data)
+                    if "depthSnapshot" in dicted_data or "depthUpdate" in dicted_data:
+                        print_orderbooks(dicted_data)
+                except KeyboardInterrupt:
+                    exit(0)
+                except Exception as e:
+                    print(f"Exception {e} occurred")
+        except Exception as conn_c:
+            print(f"WARNING: connection exception {conn_c} occurred")
+            continue
 asyncio.run(main())
