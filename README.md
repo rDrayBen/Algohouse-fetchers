@@ -5,7 +5,7 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
  2. Huobi(python, websocket)
  3. BitMart(python, websocket)
  4. Poloniex(python, websocket)
- 5. BigOne(python, websocket) - fixing
+ 5. BigOne(python, websocket)
  6. BitKub(python, websocket)
  7. Tidex(python, websocket) - fixing
  8. WOO(python, websocket)
