@@ -8,8 +8,8 @@ API_URL = "https://api.bitget.com"
 API_SYMBOLS = "/api/spot/v1/public/products"
 WS_URL = "wss://ws.bitget.com/spot/v1/stream"
 PING_RANGE = 30
-TIMEOUT = 0.02
-SLEEP_TIME = 3
+TIMEOUT = 0.1
+SLEEP_TIME = 5
 
 def print_trade(data):
     for i in data['data']:
@@ -57,7 +57,7 @@ async def subscribe(ws, symbols):
 async def heartbit(ws):
     while True:
         await ws.send("ping")
-        await asyncio.sleep(5)
+        await asyncio.sleep(SLEEP_TIME)
 
 async def main():
     try:
@@ -66,7 +66,6 @@ async def main():
         async for ws in websockets.connect(WS_URL, ping_interval=None):
             try:
                 sub_task = asyncio.create_task(subscribe(ws, symbols))
-                await sub_task
                 heart_bit_task = asyncio.create_task(heartbit(ws))
                 while True:
                     try:
