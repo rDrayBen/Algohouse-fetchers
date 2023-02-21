@@ -91,7 +91,6 @@ async def main():
     async for ws in websockets.connect(WS_URL, ping_interval=None):
         try:
             sub_task = asyncio.create_task(subscribe(ws))
-            await sub_task
             # create task to keep connection alive
             pong = asyncio.create_task(heartbeat(ws))
             while True:
