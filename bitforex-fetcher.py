@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+from datetime import datetime
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.bitforex.com/api/v1/market/symbols'
@@ -25,7 +26,8 @@ def get_unix_time():
 # function to format the trades output
 def get_trades(message):
     for elem in message['data']:
-        print('!', get_unix_time(), message['param']['businessType'],
+        print('!', get_unix_time(), message['param']['businessType'].split('-')[2].upper() \
+              + '-' + message['param']['businessType'].split('-')[1].upper(),
               'B' if elem['direction'] == 1 else 'S', str('{0:.9f}'.format(elem['price'])),
               str('{0:.7f}'.format(elem['amount'])), flush=True)
 
@@ -33,8 +35,9 @@ def get_trades(message):
 # function to format order books and deltas(order book updates) format
 def get_order_books_and_deltas(message, update):
     # check if bids array is not Null
-    if message['data']['bids']:
-        order_answer = '$ ' + str(get_unix_time()) + ' ' + message['param']['businessType'] + ' B '
+    if 'bids' in message['data'] and message['data']['bids']:
+        order_answer = '$ ' + str(get_unix_time()) + ' ' + message['param']['businessType'].split('-')[2].upper() \
+                       + '-' + message['param']['businessType'].split('-')[1].upper() + ' B '
         pq = '|'.join(f"{str('{0:.9f}'.format(elem['amount']))}@{str('{0:.9f}'.format(elem['price']))}"
                       for elem in message['data']['bids'])
         # check if the input data is full order book or just update
@@ -46,8 +49,9 @@ def get_order_books_and_deltas(message, update):
     order_answer = ''
     pq = ''
     # check if asks array is not Null
-    if message['data']['asks']:
-        order_answer = '$ ' + str(get_unix_time()) + ' ' + message['param']['businessType'] + ' S '
+    if 'asks' in message['data'] and message['data']['asks']:
+        order_answer = '$ ' + str(get_unix_time()) + ' ' + message['param']['businessType'].split('-')[2].upper() \
+                       + '-' + message['param']['businessType'].split('-')[1].upper() + ' S '
         pq = '|'.join(f"{str('{0:.9f}'.format(elem['amount']))}@{str('{0:.9f}'.format(elem['price']))}"
                       for elem in message['data']['asks'])
         # check if the input data is full order book or just update
@@ -70,10 +74,10 @@ async def subscribe(ws):
     for symbol in list_currencies:
         # subscribe to all trades
         await ws.send(json.dumps([
-            {"type":"subHq",
-             "event":"trade",
-             "param":{"businessType":symbol,
-                      "size":2}
+            {"type": "subHq",
+             "event": "trade",
+             "param": {"businessType": symbol,
+                       "size": 1}
              },
             {"type": "subHq",
              "event": "depth10",
@@ -84,25 +88,7 @@ async def subscribe(ws):
              "param": {"businessType": symbol,
                        "dType": 0}}
         ]))
-        # await ws.send(json.dumps([
-        #     {"type": "subHq",
-        #      "event": "trade",
-        #      "param": {"businessType": symbol,
-        #                "size": 5}
-        #      }
-        # ]))
-        # await ws.send(json.dumps([
-        #     {"type": "subHq",
-        #      "event": "depth10",
-        #      "param": {"businessType": symbol,
-        #                "dType": 1}},
-        # ]))
-        # await ws.send(json.dumps([
-        #     {"type": "subHq",
-        #      "event": "depth10",
-        #      "param": {"businessType": symbol,
-        #                "dType": 0}},
-        # ]))
+        await asyncio.sleep(0.1)
 
 
 async def main():
@@ -117,16 +103,18 @@ async def main():
                 data = await ws.recv()
                 # change format of received data to json format
                 dataJSON = json.loads(data)
+
                 try:
-                    # check if received data is about trades
-                    if dataJSON['event'] == 'trade':
-                        get_trades(dataJSON)
-                    # check if received data is about updates on order book
-                    elif dataJSON['event'] == 'depth10' and dataJSON['param']['dType'] == 1:
-                        get_order_books_and_deltas(dataJSON, update=True)
-                    # check if received data is about order books
-                    elif dataJSON['event'] == 'depth10' and dataJSON['param']['dType'] == 0:
-                        get_order_books_and_deltas(dataJSON, update=False)
+                    if 'event' in dataJSON and 'data' in dataJSON:
+                        # check if received data is about trades
+                        if dataJSON['event'] == 'trade' and len(dataJSON['data']) < 10:
+                            get_trades(dataJSON)
+                        # check if received data is about updates on order book
+                        elif dataJSON['event'] == 'depth10' and dataJSON['param']['dType'] == 1:
+                            get_order_books_and_deltas(dataJSON, update=True)
+                        # check if received data is about order books
+                        elif dataJSON['event'] == 'depth10' and dataJSON['param']['dType'] == 0:
+                            get_order_books_and_deltas(dataJSON, update=False)
                     else:
                         print(dataJSON)
                 except Exception as e:
