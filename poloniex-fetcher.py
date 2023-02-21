@@ -81,9 +81,6 @@ async def main():
         try:
             # create task to subscribe to all trades, order books and order book updates
             sub_task = asyncio.create_task(subscribe(ws))
-            # execute sub task
-            await sub_task
-
             # create task to keep connection alive
             pong = asyncio.create_task(heartbeat(ws))
 
