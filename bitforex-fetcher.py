@@ -103,10 +103,13 @@ async def main():
                 data = await ws.recv()
                 # change format of received data to json format
                 dataJSON = json.loads(data)
-
                 try:
                     if 'event' in dataJSON and 'data' in dataJSON:
                         # check if received data is about trades
+                        # I ran an experiment, where i measured the amount of trades in incoming data and as I saw,
+                        # we either receive a full snapshot of trade history, which consists of 20+ trades
+                        # or we receive a message with only 1 trade, so I made an if statement to check whether incoming
+                        # data is trade history or most recent trade, by checking the amount of trades in message
                         if dataJSON['event'] == 'trade' and len(dataJSON['data']) < 10:
                             get_trades(dataJSON)
                         # check if received data is about updates on order book
