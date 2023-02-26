@@ -5,18 +5,24 @@ import time
 import asyncio
 
 # get all available symbol pairs from exchange
-currency_url = 'https://api.woo.org/v1/public/info'
+currency_url = 'https://api.exmo.com/v1.1/pair_settings'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 # base web socket url
-WS_URL = 'wss://wss.woo.org/ws/stream/1fbac7b8-d849-4f95-b2ef-cf988a95f4d3'
-# user id
-UI = '91648'
+WS_URL = 'wss://ws-api.exmo.com:443/v1/public'
 
-# fill the list with available pairs
-for currency in currencies['rows']:
-    list_currencies.append(currency['symbol'][5:])
+# fill the list with all available symbols on the exchange
+list_currencies = list(currencies.keys())
+
+
+async def metadata():
+    for pair in list_currencies:
+        pair_data = '@MD ' + pair.split('_')[0] + '-' + pair.split('_')[1] + ' spot ' + \
+                    pair.split('_')[0] + ' ' + pair.split('_')[1] + ' ' + str(currencies[pair]['price_precision']) \
+                    + ' 1 1'
+        print(pair_data, flush=True)
+    print('@MDEND')
 
 
 # function to get current time in unix format
@@ -26,19 +32,22 @@ def get_unix_time():
 
 # function to format the trades output
 def get_trades(message):
-    print('!', get_unix_time(), message['symbol'].split('_')[1] + '-' + message['symbol'].split('_')[2],
-          message['side'][0].upper(), str('{0:.9f}'.format(message['price'])),
-          str('{0:.9f}'.format(message['size'])), flush=True)
+    coin_name = message['topic'].split(':')[1].split('_')[0] + '-' + message['topic'].split(':')[1].split('_')[1]
+    if 'data' in message:
+        for elem in message['data']:
+            print('!', get_unix_time(), coin_name,
+                  elem['type'][0].upper(), elem['price'],
+                  elem['amount'], flush=True)
 
 
 # function to format order books and deltas(order book updates) format
 def get_order_books_and_deltas(message, update):
+    coin_name = message['topic'].split(':')[1].split('_')[0] + '-' + message['topic'].split(':')[1].split('_')[1]
     # check if bids array is not Null
-    if message['bids']:
-        order_answer = '$ ' + str(get_unix_time()) + ' ' + message['symbol'].split('_')[1] + '-' +\
-                       message['symbol'].split('_')[2] + ' B '
-        pq = '|'.join(f"{str('{0:.9f}'.format(elem[1]))}@{str('{0:.9f}'.format(elem[0]))}"
-                      for elem in message['bids'])
+    if 'data' in message and 'bid' in message['data'] and message['data']['bid']:
+        order_answer = '$ ' + str(get_unix_time()) + ' ' + coin_name + ' B '
+        pq = '|'.join(f"{elem[2]}@{elem[0]}"
+                      for elem in message['data']['bid'])
         # check if the input data is full order book or just update
         if update:
             print(order_answer + pq, flush=True)
@@ -48,11 +57,10 @@ def get_order_books_and_deltas(message, update):
     order_answer = ''
     pq = ''
     # check if asks array is not Null
-    if message['asks']:
-        order_answer = '$ ' + str(get_unix_time()) + ' ' + message['symbol'].split('_')[1] + '-' +\
-                       message['symbol'].split('_')[2] + ' S '
-        pq = '|'.join(f"{str('{0:.9f}'.format(elem[1]))}@{str('{0:.9f}'.format(elem[0]))}"
-                      for elem in message['asks'])
+    if 'data' in message and 'ask' in message['data'] and message['data']['ask']:
+        order_answer = '$ ' + str(get_unix_time()) + ' ' + coin_name + ' S '
+        pq = '|'.join(f"{elem[2]}@{elem[0]}"
+                      for elem in message['data']['ask'])
         # check if the input data is full order book or just update
         if update:
             print(order_answer + pq, flush=True)
@@ -63,9 +71,8 @@ def get_order_books_and_deltas(message, update):
 async def heartbeat(ws):
     while True:
         await ws.send(json.dumps({
-            'event': "pong",
-            "ts": get_unix_time()
-        }))
+                    "event": "ping"
+                }))
         await asyncio.sleep(5)
 
 
@@ -74,21 +81,12 @@ async def subscribe(ws):
     for symbol in list_currencies:
         # subscribe to all trades
         await ws.send(json.dumps({
-            "id": f"{UI}",
-            "topic": f"SPOT_{symbol}@trade",
-            "event": "subscribe"
-        }))
-        # subscribe to all order books
-        await ws.send(json.dumps({
-            "id": f"{UI}",
-            "topic": f"SPOT_{symbol}@orderbook",
-            "event": "subscribe"
-        }))
-        # subscribe to all order book updates
-        await ws.send(json.dumps({
-            "id": f"{UI}",
-            "topic": f"SPOT_{symbol}@orderbookupdate",
-            "event": "subscribe"
+            "method": "subscribe",
+            "topics": [
+                f"spot/trades:{symbol}",
+                f"spot/order_book_snapshots:{symbol}",
+                f"spot/order_book_updates:{symbol}"
+            ]
         }))
 
 
@@ -97,36 +95,35 @@ async def main():
     async for ws in websockets.connect(WS_URL, ping_interval=None):
         try:
             sub_task = asyncio.create_task(subscribe(ws))
-            await sub_task
             # create task to keep connection alive
             pong = asyncio.create_task(heartbeat(ws))
+            # print metadata about each pair symbols
+            meta_data = asyncio.create_task(metadata())
             while True:
                 # receiving data from server
                 data = await ws.recv()
                 # change format of received data to json format
                 dataJSON = json.loads(data)
                 try:
-                    # check if received data is about trades
-                    if 'trade' in dataJSON['topic']:
-                        get_trades(dataJSON['data'])
-                    # check if received data is about order books
-                    elif 'orderbookupdate' in dataJSON['topic']:
-                        get_order_books_and_deltas(dataJSON['data'], update=True)
-                    # check if received data is about updates on order book
-                    elif 'orderbook' in dataJSON['topic']:
-                        get_order_books_and_deltas(dataJSON['data'], update=False)
-                    # sending ping to keep connection alive
-                    elif dataJSON['event'] == 'ping':
-                        await ws.send(json.dumps({
-                            'event': "pong",
-                            "ts": get_unix_time()
-                        }))
+                    if 'topic' in dataJSON:
+                        # check if received data is about trades
+                        if 'trades' in dataJSON['topic']:
+                            get_trades(dataJSON)
+                        # check if received data is about updates on order book
+                        elif 'order_book_snapshots' in dataJSON['topic']:
+                            get_order_books_and_deltas(dataJSON, update=True)
+                        # check if received data is about order books
+                        elif 'order_book_updates' in dataJSON['topic']:
+                            get_order_books_and_deltas(dataJSON, update=False)
+                        else:
+                            print(dataJSON)
                     else:
                         print(dataJSON)
                 except Exception as e:
                     print(f"Exception {e} occurred")
         except Exception as conn_e:
             print(f"WARNING: connection exception {conn_e} occurred")
+
 
 # run main function
 asyncio.run(main())
