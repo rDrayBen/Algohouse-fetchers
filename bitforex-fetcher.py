@@ -3,7 +3,6 @@ import requests
 import websockets
 import time
 import asyncio
-from datetime import datetime
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.bitforex.com/api/v1/market/symbols'
@@ -14,8 +13,17 @@ list_currencies = list()
 WS_URL = 'wss://www.bitforex.com/mkapi/coinGroup1/ws'
 
 # fill the list with all available symbol pairs on exchange
-for pair in currencies['data']:
-    list_currencies.append(pair['symbol'])
+for pair_s in currencies['data']:
+    list_currencies.append(pair_s['symbol'])
+
+
+async def metadata():
+    for pair in currencies['data']:
+        pair_data = '@MD ' + pair['symbol'].split('-')[2].upper() + '-' + pair['symbol'].split('-')[1].upper() + \
+                    ' spot ' + pair['symbol'].split('-')[2].upper() + ' ' + pair['symbol'].split('-')[1].upper() + \
+                    ' ' + str(pair['pricePrecision']) + ' 1 1'
+        print(pair_data, flush=True)
+    print('@MDEND')
 
 
 # function to get current time in unix format
@@ -98,6 +106,8 @@ async def main():
             sub_task = asyncio.create_task(subscribe(ws))
             # create task to keep connection alive
             pong = asyncio.create_task(heartbeat(ws))
+            # print metadata about each pair symbols
+            meta_data = asyncio.create_task(metadata())
             while True:
                 # receiving data from server
                 data = await ws.recv()
