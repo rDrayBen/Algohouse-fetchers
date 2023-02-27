@@ -24,7 +24,7 @@ async def metadata():
     for pair in resp['data']:
         if pair['state'] == 'online':
             pair_data = '@MD ' + pair['bc'].upper() + '-' + pair['qc'].upper() + ' spot ' + \
-                        pair['bc'].upper() + ' ' + pair['qc'].upper() + ' ' + str(pair['vp']) + ' 1 1'
+                        pair['bc'].upper() + ' ' + pair['qc'].upper() + ' ' + str(pair['vp']) + ' 1 1 0 0'
             print(pair_data, flush=True)
     print('@MDEND')
 
@@ -112,7 +112,7 @@ async def main():
                 try:
                     if 'ch' in dataJSON:
                         # check if received data is about trades
-                        if 'trades' in dataJSON['ch']:
+                        if 'trade' in dataJSON['ch']:
                             get_trades(dataJSON)
                         # check if received data is about updates on order book
                         elif 'mbp' in dataJSON['ch']:
