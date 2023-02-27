@@ -11,6 +11,8 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
  8. WOO(python, websocket)
  9. EXMO(python, websocket)
 10. Bitget(python, websocket) 
+11. Bitforex(python, websocket)
+12. Hitbtc(python, websocket)
  
 Rules for writting fetchers:
   1. use python(later maybe go)
