@@ -30,7 +30,7 @@ def divide_chunks(l, n):
 
 def print_meta(data):
     print("@MD", data['symbol'], "spot", data['base_currency'], data['quote_currency'], data['price_max_precision'],
-          1, 1, end="\n")
+          1, 1,0,0, end="\n")
 
 async def get_metadata(response):
     for i in response.json()['data']['symbols']:

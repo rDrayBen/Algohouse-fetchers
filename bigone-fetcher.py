@@ -27,7 +27,7 @@ async def heartbeat(ws):
 
 def print_meta(data):
     print("@MD", data['name'], "spot", data['base_asset']['symbol'], data['quote_asset']['symbol'], data['quote_scale'],
-          1, 1, end="\n")
+          1, 1, 0, 0, end="\n")
 
 async def get_metadata(response):
     for i in response.json()['data']:

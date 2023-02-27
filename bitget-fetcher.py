@@ -34,7 +34,7 @@ def print_orderbook(data):
 
 def print_meta(data):
     print("@MD", data['symbolName'], "spot", data['baseCoin'], data['quoteCoin'], data['quantityScale'],
-          1, 1, end="\n")
+          1, 1, 0, 0, end="\n")
 
 async def get_metadata(response):
     for i in response.json()['data']:
