@@ -28,7 +28,7 @@ async def metadata():
                 prec = i
         pair_data = '@MD ' + pair['symbol'].split('_')[1] + '-' + pair['symbol'].split('_')[2] + ' spot ' + \
                     pair['symbol'].split('_')[1] + ' ' + pair['symbol'].split('_')[2] + ' ' + \
-                    str(prec) + ' 1 1'
+                    str(prec) + ' 1 1 0 0'
         print(pair_data, flush=True)
     print('@MDEND')
 
