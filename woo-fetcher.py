@@ -13,10 +13,24 @@ list_currencies = list()
 WS_URL = 'wss://wss.woo.org/ws/stream/1fbac7b8-d849-4f95-b2ef-cf988a95f4d3'
 # user id
 UI = '91648'
+precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000]
 
 # fill the list with available pairs
 for currency in currencies['rows']:
     list_currencies.append(currency['symbol'][5:])
+
+
+async def metadata():
+    for pair in currencies['rows']:
+        prec = 0
+        for i in range(len(precision)):
+            if pair['base_tick'] * precision[i] == 1:
+                prec = i
+        pair_data = '@MD ' + pair['symbol'].split('_')[1] + '-' + pair['symbol'].split('_')[2] + ' spot ' + \
+                    pair['symbol'].split('_')[1] + ' ' + pair['symbol'].split('_')[2] + ' ' + \
+                    str(prec) + ' 1 1 0 0'
+        print(pair_data, flush=True)
+    print('@MDEND')
 
 
 # function to get current time in unix format
@@ -63,8 +77,7 @@ def get_order_books_and_deltas(message, update):
 async def heartbeat(ws):
     while True:
         await ws.send(json.dumps({
-            'event': "pong",
-            "ts": get_unix_time()
+            'event': "ping"
         }))
         await asyncio.sleep(5)
 
@@ -99,23 +112,28 @@ async def main():
             sub_task = asyncio.create_task(subscribe(ws))
             # create task to keep connection alive
             pong = asyncio.create_task(heartbeat(ws))
+            # print metadata about each pair symbols
+            meta_data = asyncio.create_task(metadata())
             while True:
                 # receiving data from server
                 data = await ws.recv()
                 # change format of received data to json format
                 dataJSON = json.loads(data)
                 try:
-                    # check if received data is about trades
-                    if 'trade' in dataJSON['topic']:
-                        get_trades(dataJSON['data'])
-                    # check if received data is about order books
-                    elif 'orderbookupdate' in dataJSON['topic']:
-                        get_order_books_and_deltas(dataJSON['data'], update=True)
-                    # check if received data is about updates on order book
-                    elif 'orderbook' in dataJSON['topic']:
-                        get_order_books_and_deltas(dataJSON['data'], update=False)
+                    if 'topic' in dataJSON:
+                        # check if received data is about trades
+                        if 'trade' in dataJSON['topic']:
+                            get_trades(dataJSON['data'])
+                        # check if received data is about order books
+                        elif 'orderbookupdate' in dataJSON['topic']:
+                            get_order_books_and_deltas(dataJSON['data'], update=True)
+                        # check if received data is about updates on order book
+                        elif 'orderbook' in dataJSON['topic']:
+                            get_order_books_and_deltas(dataJSON['data'], update=False)
+                        else:
+                            print(dataJSON)
                     # sending ping to keep connection alive
-                    elif dataJSON['event'] == 'ping':
+                    elif 'event' in dataJSON and dataJSON['event'] == 'ping':
                         await ws.send(json.dumps({
                             'event': "pong",
                             "ts": get_unix_time()

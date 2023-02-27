@@ -14,6 +14,16 @@ for currency in currencies:
         list_currencies.append(currency['symbol'])
 
 
+async def metadata():
+    for pair in currencies:
+        if pair['state'] == 'NORMAL':
+            pair_data = '@MD ' + pair['baseCurrencyName'] + '-' + pair['quoteCurrencyName'] + ' spot ' + \
+                        pair['baseCurrencyName'] + ' ' + pair['quoteCurrencyName'] + ' ' + \
+                        str(pair['symbolTradeLimit']['priceScale']) + ' 1 1 0 0'
+            print(pair_data, flush=True)
+    print('@MDEND')
+
+
 def get_unix_time():
     return round(time.time() * 1000)
 
@@ -27,30 +37,42 @@ def get_trades(message):
                   float(elem['amount']) + float(elem['quantity']), flush=True)
 
 
-def get_order_books_and_deltas(message):
-    order_data = message
-    if 'data' in order_data:
-        if order_data['data'][0]['bids']:
-            order_answer = '$ ' + str(get_unix_time()) + ' ' + order_data['data'][0]['symbol'].split('_')[0] + '-' + \
-                           order_data['data'][0]['symbol'].split('_')[1] + ' B '
-            pq = '|'.join(f"{elem[1]}@{elem[0]}"
-                          for elem in order_data['data'][0]['bids'])
-            if order_data['action'] == "snapshot":
-                print(order_answer + pq + ' R', flush=True)
-            elif order_data['action'] == "update":
+def get_order_books_and_deltas(message, update):
+    if 'action' in message and message['action'] == 'snapshot':
+        return
+    elif 'action' in message and message['action'] == 'update':
+        update = True
+    if update:
+        if 'data' in message:
+            if 'bids' in message['data'][0] and message['data'][0]['bids']:
+                order_answer = '$ ' + str(get_unix_time()) + ' ' + message['data'][0]['symbol'].split('_')[0] + '-' + \
+                               message['data'][0]['symbol'].split('_')[1] + ' B '
+                pq = '|'.join(f"{elem[1]}@{elem[0]}"
+                              for elem in message['data'][0]['bids'])
                 print(order_answer + pq, flush=True)
 
-        order_answer = ''
-        pq = ''
-        if order_data['data'][0]['asks']:
-            order_answer = '$ ' + str(get_unix_time()) + ' ' + order_data['data'][0]['symbol'].split('_')[0] + '-' + \
-                           order_data['data'][0]['symbol'].split('_')[1] + ' S '
-            pq = '|'.join(f"{elem[1]}@{elem[0]}"
-                          for elem in order_data['data'][0]['asks'])
-            if order_data['action'] == "snapshot":
-                print(order_answer + pq + ' R', flush=True)
-            elif order_data['action'] == "update":
+            if 'asks' in message['data'][0] and message['data'][0]['asks']:
+                order_answer = '$ ' + str(get_unix_time()) + ' ' + message['data'][0]['symbol'].split('_')[0] + '-' + \
+                               message['data'][0]['symbol'].split('_')[1] + ' S '
+                pq = '|'.join(f"{elem[1]}@{elem[0]}"
+                              for elem in message['data'][0]['asks'])
                 print(order_answer + pq, flush=True)
+    else:
+        if 'data' in message:
+            for i in range(len(message['data'])):
+                if 'bids' in message['data'][i] and message['data'][i]['bids']:
+                    order_answer = '$ ' + str(get_unix_time()) + ' ' + message['data'][i]['symbol'].split('_')[0] + '-' + \
+                                   message['data'][i]['symbol'].split('_')[1] + ' B '
+                    pq = '|'.join(f"{elem[1]}@{elem[0]}"
+                                  for elem in message['data'][i]['bids'])
+                    print(order_answer + pq + ' R', flush=True)
+
+                if 'asks' in message['data'][i] and message['data'][i]['asks']:
+                    order_answer = '$ ' + str(get_unix_time()) + ' ' + message['data'][0]['symbol'].split('_')[0] + '-' + \
+                                   message['data'][i]['symbol'].split('_')[1] + ' S '
+                    pq = '|'.join(f"{elem[1]}@{elem[0]}"
+                                  for elem in message['data'][i]['asks'])
+                    print(order_answer + pq + ' R', flush=True)
 
 
 async def heartbeat(ws):
@@ -71,9 +93,15 @@ async def subscribe(ws):
     for symbol in list_currencies:
         await ws.send(json.dumps({
             "event": "subscribe",
-            "channel": ["book_lv2"],
-            "symbols": [f"{symbol.split('_')[0].lower()}_{symbol.split('_')[1].lower()}"]
+            "channel": ["book"],
+            "symbols": [f"{symbol.split('_')[0].lower()}_{symbol.split('_')[1].lower()}"],
+            "depth": 20
         }))
+        # await ws.send(json.dumps({
+        #     "event": "subscribe",
+        #     "channel": ["book_lv2"],
+        #     "symbols": [f"{symbol.split('_')[0].lower()}_{symbol.split('_')[1].lower()}"]
+        # }))
 
 
 async def main():
@@ -83,15 +111,21 @@ async def main():
             sub_task = asyncio.create_task(subscribe(ws))
             # create task to keep connection alive
             pong = asyncio.create_task(heartbeat(ws))
-
+            # print metadata about each pair symbols
+            meta_data = asyncio.create_task(metadata())
             while True:
                 data = await ws.recv()
                 try:
                     dataJSON = json.loads(data)
-                    if dataJSON['channel'] and dataJSON['channel'] == "trades":
-                        get_trades(dataJSON)
-                    elif dataJSON['channel'] and dataJSON['channel'] == "book_lv2":
-                        get_order_books_and_deltas(dataJSON)
+                    if 'channel' in dataJSON:
+                        if dataJSON['channel'] == "trades":
+                            get_trades(dataJSON)
+                        elif dataJSON['channel'] == "book_lv2":
+                            get_order_books_and_deltas(dataJSON, update=True)
+                        elif dataJSON['channel'] == "book":
+                            get_order_books_and_deltas(dataJSON, update=False)
+                        else:
+                            print(dataJSON)
                     else:
                         print(dataJSON)
                 except Exception as e:

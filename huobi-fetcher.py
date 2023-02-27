@@ -20,6 +20,15 @@ for i in range(len(resp['data'])):
 WS_URL = "wss://api.huobi.pro/ws"
 
 
+async def metadata():
+    for pair in resp['data']:
+        if pair['state'] == 'online':
+            pair_data = '@MD ' + pair['bc'].upper() + '-' + pair['qc'].upper() + ' spot ' + \
+                        pair['bc'].upper() + ' ' + pair['qc'].upper() + ' ' + str(pair['vp']) + ' 1 1 0 0'
+            print(pair_data, flush=True)
+    print('@MDEND')
+
+
 # function to get current time in unix format
 def get_unix_time():
     return round(time.time() * 1000)
@@ -93,21 +102,26 @@ async def main():
             sub_task = asyncio.create_task(subscribe(ws))
             # create task to keep connection alive
             pong = asyncio.create_task(heartbeat(ws))
+            # print metadata about each pair symbols
+            meta_data = asyncio.create_task(metadata())
             while True:
                 # receiving data from server
                 data = await ws.recv()
                 # change format of received data to json format
                 dataJSON = json.loads(gzip.decompress(data))
                 try:
-                    # check if received data is about trades
-                    if 'trades' in dataJSON['ch']:
-                        get_trades(dataJSON)
-                    # check if received data is about updates on order book
-                    elif 'mbp' in dataJSON['ch']:
-                        get_order_books_and_deltas(dataJSON, update=True)
-                    # check if received data is about order books
-                    elif 'depth' in dataJSON['ch']:
-                        get_order_books_and_deltas(dataJSON, update=False)
+                    if 'ch' in dataJSON:
+                        # check if received data is about trades
+                        if 'trade' in dataJSON['ch']:
+                            get_trades(dataJSON)
+                        # check if received data is about updates on order book
+                        elif 'mbp' in dataJSON['ch']:
+                            get_order_books_and_deltas(dataJSON, update=True)
+                        # check if received data is about order books
+                        elif 'depth' in dataJSON['ch']:
+                            get_order_books_and_deltas(dataJSON, update=False)
+                        else:
+                            print(dataJSON)
                     elif 'ping' in dataJSON:
                         await ws.send(json.dumps({
                             "pong": dataJSON['ping']
