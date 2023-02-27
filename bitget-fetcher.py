@@ -32,6 +32,15 @@ def print_orderbook(data):
             print("$", round(time.time() * 1000), data['arg']['instId'],
                   "B", "|".join(x[1] + "@" + x[0] for x in data['data'][0]['bids']),"R", end='\n')
 
+def print_meta(data):
+    print("@MD", data['symbolName'], "spot", data['baseCoin'], data['quoteCoin'], data['quantityScale'],
+          1, 1, end="\n")
+
+async def get_metadata(response):
+    for i in response.json()['data']:
+        print_meta(i)
+    print("@MDEND")
+
 async def subscribe(ws, symbols):
     start_send = time.time()
     for i in symbols:
@@ -67,6 +76,7 @@ async def main():
             try:
                 sub_task = asyncio.create_task(subscribe(ws, symbols))
                 heart_bit_task = asyncio.create_task(heartbit(ws))
+                meta_task = asyncio.create_task(get_metadata(response))
                 while True:
                     try:
                         data = await ws.recv()

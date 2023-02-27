@@ -8,6 +8,7 @@ API_URL = "https://big.one/api/v3"
 API_SYMBOLS = "/asset_pairs"
 WS_URL = "wss://big.one/ws/v2"
 TIMEOUT_SEND = 0.01
+PING_TIMEOUT = 5
 
 def create_trade_request(id, symbol):
     treade_request = json.dumps({"requestId": str(id),
@@ -19,10 +20,30 @@ def create_orderbook_requets(id, symbol):
                         "subscribeMarketDepthRequest":{"market":symbol}})
     return depth_request
 
+async def heartbeat(ws):
+    while True:
+        await ws.send("ping")
+        await asyncio.sleep(PING_TIMEOUT)
+
+def print_meta(data):
+    print("@MD", data['name'], "spot", data['base_asset']['symbol'], data['quote_asset']['symbol'], data['quote_scale'],
+          1, 1, end="\n")
+
+async def get_metadata(response):
+    for i in response.json()['data']:
+        print_meta(i)
+    print("@MDEND")
+
 pairs = requests.get(API_URL + API_SYMBOLS)
 symbols = [x['name'] for x in pairs.json()['data']]
 trade_messages = []
 orderbook_messages = []
+
+async def subscribe(ws):
+    for i in range(len(symbols)):
+        await ws.send(trade_messages[i])
+        await ws.send(orderbook_messages[i])
+        await asyncio.sleep(TIMEOUT_SEND)
 
 for i in range(len(symbols)):
     trade_messages.append(create_trade_request(i, symbols[i]))
@@ -57,15 +78,16 @@ def print_orderbooks(data):
     except:
         pass
 
+def print_metadata(data):
+    pass
+
 async def main():
     async for ws in websockets.connect(uri=WS_URL, subprotocols=['graphql-ws'],
                                       extra_headers={"Sec-WebSocket-Protocol":"json"}):
         try:
-            for i in range(len(symbols)):
-                await ws.send(trade_messages[i])
-                await ws.send(orderbook_messages[i])
-                time.sleep(TIMEOUT_SEND)
-
+            sub_task = asyncio.create_task(subscribe(ws))
+            heartbeat_task = asyncio.create_task(heartbeat(ws))
+            meta_task = asyncio.create_task(get_metadata(pairs))
             while True:
                 try:
                     data = await ws.recv()
