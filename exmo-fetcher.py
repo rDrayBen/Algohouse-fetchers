@@ -20,7 +20,7 @@ async def metadata():
     for pair in list_currencies:
         pair_data = '@MD ' + pair.split('_')[0] + '-' + pair.split('_')[1] + ' spot ' + \
                     pair.split('_')[0] + ' ' + pair.split('_')[1] + ' ' + str(currencies[pair]['price_precision']) \
-                    + ' 1 1'
+                    + ' 1 1 0 0'
         print(pair_data, flush=True)
     print('@MDEND')
 
