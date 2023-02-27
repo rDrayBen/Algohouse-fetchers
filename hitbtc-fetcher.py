@@ -28,7 +28,7 @@ async def metadata():
                 if float(curr['tick_size']) * precision[i] == 1:
                     prec = i
             pair_data = '@MD ' + pair + ' spot ' + curr['base_currency'] + ' ' + curr['quote_currency'] + ' ' + \
-                        str(prec) + ' 1 1'
+                        str(prec) + ' 1 1 0 0'
             print(pair_data, flush=True)
     print('@MDEND')
 
