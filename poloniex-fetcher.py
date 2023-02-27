@@ -19,7 +19,7 @@ async def metadata():
         if pair['state'] == 'NORMAL':
             pair_data = '@MD ' + pair['baseCurrencyName'] + '-' + pair['quoteCurrencyName'] + ' spot ' + \
                         pair['baseCurrencyName'] + ' ' + pair['quoteCurrencyName'] + ' ' + \
-                        str(pair['symbolTradeLimit']['priceScale']) + ' 1 1'
+                        str(pair['symbolTradeLimit']['priceScale']) + ' 1 1 0 0'
             print(pair_data, flush=True)
     print('@MDEND')
 
@@ -97,11 +97,11 @@ async def subscribe(ws):
             "symbols": [f"{symbol.split('_')[0].lower()}_{symbol.split('_')[1].lower()}"],
             "depth": 20
         }))
-        await ws.send(json.dumps({
-            "event": "subscribe",
-            "channel": ["book_lv2"],
-            "symbols": [f"{symbol.split('_')[0].lower()}_{symbol.split('_')[1].lower()}"]
-        }))
+        # await ws.send(json.dumps({
+        #     "event": "subscribe",
+        #     "channel": ["book_lv2"],
+        #     "symbols": [f"{symbol.split('_')[0].lower()}_{symbol.split('_')[1].lower()}"]
+        # }))
 
 
 async def main():
