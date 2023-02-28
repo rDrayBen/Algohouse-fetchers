@@ -22,8 +22,8 @@ def get_trades(var):
     if 'data' in trade_data["params"]:
         for elem in trade_data["params"]["data"]:
             print('!', get_unix_time(), trade_data["params"]['symbol'],
-                  "B" if elem["side"] == "buy" else "S", float(elem['price']),
-                  float(elem["quantity"]), flush=True)
+                  "B" if elem["side"] == "buy" else "S", elem['price'],
+                  elem["quantity"], flush=True)
 
 
 def get_order_books(var, update):
@@ -96,15 +96,15 @@ async def main():
                             get_trades(dataJSON)
 
                         # if received data is about updates
-                        elif dataJSON['method'] == 'updateOrderbook':
+                        if dataJSON['method'] == 'updateOrderbook':
                             get_order_books(dataJSON, update=True)
 
                         # if received data is about orderbooks
-                        elif dataJSON['method'] == 'snapshotOrderbook':
+                        if dataJSON['method'] == 'snapshotOrderbook':
                             get_order_books(dataJSON, update=False)
 
                         else:
-                            print(dataJSON)
+                            pass
 
                     except Exception as ex:
                         print(f"Exception {ex} occurred")
