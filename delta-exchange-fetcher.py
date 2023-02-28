@@ -7,15 +7,24 @@ import time
 # get all available instruments from exchange
 WS_URL = 'wss://socket.delta.exchange'
 currency_url = 'https://api.delta.exchange/v2/indices'
+meta_url = 'https://api.delta.exchange/v2/products'
 answer = requests.get(currency_url)
+meta_answer = requests.get(meta_url)
 currencies = answer.json()
 list_currencies = list()
-
 
 # list of all instruments
 for elem in currencies['result']:
     if elem['config'] is not None and 'quoting_asset' in elem['config'] and 'underlying_asset' in elem['config']:
         list_currencies.append(elem['config']['underlying_asset'] + elem['config']['quoting_asset'])
+
+
+def get_metadata(message):
+    meta_data = message
+    for elem in meta_data['result']:
+        min_prec = min(elem['underlying_asset']['precision'], elem['quoting_asset']['precision'])
+        print(f"@MD {elem['underlying_asset']['symbol']}_{elem['quoting_asset']['symbol']} spot {elem['underlying_asset']['symbol']} {elem['quoting_asset']['symbol']} {min_prec} 1 1 0 0")
+    print('@MDEND')
 
 
 def get_unix_time():
@@ -26,7 +35,7 @@ def get_unix_time():
 def get_trades(message):
     trade_data = message
     def_str = "! " + str(get_unix_time()) + f" {trade_data['symbol']}" + \
-              f"{ ' B' if trade_data['seller_role'] == 'maker' else ' S'}" + f" {trade_data['price']}" + f" {trade_data['size']}"
+              f"{' B' if trade_data['seller_role'] == 'maker' else ' S'}" + f" {trade_data['price']}" + f" {trade_data['size']}"
     print(def_str)
 
 
@@ -79,6 +88,11 @@ async def subscribe(ws):
 
 
 async def main():
+    
+    # get metadata
+    meta_data = json.loads(meta_answer.text)
+    get_metadata(meta_data)
+
     # create connection with server
     async for ws in websockets.connect(WS_URL, ping_interval=None):
 
