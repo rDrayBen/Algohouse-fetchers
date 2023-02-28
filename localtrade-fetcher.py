@@ -10,6 +10,7 @@ answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 WS_URL = 'wss://localtrade.cc/ws'
+meta_url = 'https://api.localtrade.cc/api/v1/public/tickers'
 
 # list of all instruments
 for currency in currencies['result']:
@@ -76,7 +77,18 @@ async def subscribe(ws):
         await asyncio.sleep(0.1)
 
 
+async def get_metadata(message):
+    meta_data = message
+    for elem in meta_data['result']:
+        print(f"@MD {elem['name']} spot {elem['stock']} {elem['money']} {elem['feePrec']} 1 1 0 0")
+    print('@MDEND')
+
+
 async def main():
+
+    meta_data = json.loads(answer.text)
+    await get_metadata(meta_data)
+
     for i in list_currencies:
         # create connection with server
         async for ws in websockets.connect(WS_URL):
