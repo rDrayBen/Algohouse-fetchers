@@ -13,9 +13,7 @@ WS_URL = 'wss://stream.xt.com/public'
 
 # check if the certain symbol pair is available
 for element in currencies["result"]["symbols"]:
-	if element["state"] == "ONLINE":
-		list_currencies.append(element["symbol"])
-
+	list_currencies.append(element["symbol"])
 
 # get time in unix format
 def get_unix_time():
@@ -76,7 +74,7 @@ async def main():
 					"params": [
 						f"trade@{list_currencies[i]}"
 					],
-					"id": "123"
+					"id": "1"
 				}))
 
 				# create the subscription for full orderbooks
@@ -85,7 +83,7 @@ async def main():
 					"params": [
 						f"depth@{list_currencies[i]},50"
 					],
-					"id": "123"
+					"id": "2"
 				}))
 
 				# create the subscription for updates
@@ -94,7 +92,7 @@ async def main():
 					"params": [
 						f"depth_update@{list_currencies[i]}"
 					],
-					"id": "123"
+					"id": "3"
 				}))
 
 			while True:
@@ -120,7 +118,7 @@ async def main():
 							get_order_books(dataJSON, depth_update=False)
 
 						else:
-							print(dataJSON)
+							pass
 
 					except Exception as ex:
 						print(f"Exception {ex} occurred")
