@@ -5,6 +5,8 @@ import asyncio
 import requests
 
 API_URL = "https://api.bitkub.com"
+META_API = "https://tradingview.bitkub.com/tradingview"
+DECIMALS_API = "/symbols?symbol="
 API_SYMBOLS = "/api/market/symbols"
 WS_URL = "wss://api.bitkub.com/websocket-api/"
 WS_ORDERBOOKS = "wss://api.bitkub.com/websocket-api/orderbook/"
@@ -52,6 +54,18 @@ def print_orderbook(data, symbol_):
                            data['data'][2]),"R",
                   end="\n")
 
+def print_meta(data):
+    quote_symbol = data['symbol'][4:len(data['symbol'])]
+    precission = str(requests.get(META_API + DECIMALS_API + quote_symbol + "_THB").json()['pricescale'])
+    decimals_ = precission.count('0')
+    # add decimals
+    print("@MD", data['symbol'].replace('_', '/'), "spot", "THB", quote_symbol, decimals_,
+          1, 1, 0, 0, end="\n")
+
+async def get_metadata(response):
+    for i in response.json()['result']:
+        print_meta(i)
+    print("@MDEND")
 
 response = requests.get(API_URL + API_SYMBOLS)
 symbols = [x['symbol'] for x in response.json()['result']]
@@ -74,6 +88,7 @@ async def handle_socket(uri, ):
         await websocket.keepalive_ping()
 
 async def handler():
+    meta_task = asyncio.create_task(get_metadata(response))
     await asyncio.wait([handle_socket(uri) for uri in trade_messages+orderbook_messages])
 
 def main():
