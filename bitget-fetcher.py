@@ -61,7 +61,7 @@ async def subscribe(ws, symbols):
                 "instId": i
             }]
         }))
-        time.sleep(TIMEOUT)
+        await asyncio.sleep(TIMEOUT)
 
 async def heartbit(ws):
     while True:
