@@ -15,6 +15,20 @@ WS_URL = 'wss://stream.xt.com/public'
 for element in currencies["result"]["symbols"]:
 	list_currencies.append(element["symbol"])
 
+
+#get metadata about each pair of symbols
+async def metadata():
+
+	for pair in currencies["result"]["symbols"]:
+		pair_data = '@MD ' + pair["baseCurrency"].upper() + '-' + pair["quoteCurrency"].upper() + ' spot ' + \
+					pair["baseCurrency"].upper() + ' ' + pair["quoteCurrency"].upper() + \
+					' ' + str(pair['pricePrecision']) + ' 1 1 0 0'
+
+		print(pair_data, flush=True)
+
+	print('@MDEND')
+
+
 # get time in unix format
 def get_unix_time():
 	return round(time.time() * 1000)
@@ -67,6 +81,12 @@ async def main():
 		try:
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
+
+			# create task to get metadata about each pair of symbols
+			meta_data = asyncio.create_task(metadata())
+
+			print(meta_data)
+
 			for i in range(len(list_currencies)):
 				# create the subscription for trades
 				await ws.send(json.dumps({
