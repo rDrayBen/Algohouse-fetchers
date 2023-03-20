@@ -142,6 +142,8 @@ async def main():
                                                        update=False)
                         else:
                             print(dataJSON)
+                    elif 'error' in dataJSON:
+                        pass
                     else:
                         print(dataJSON)
                 except Exception as e:
