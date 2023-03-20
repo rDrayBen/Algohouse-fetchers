@@ -20,9 +20,11 @@ for pair_s in currencies['data']['products']:
 
 async def metadata():
     for pair in currencies['data']['products']:
-        pair_data = '@MD ' + pair['symbol'] + ' spot ' + pair['displaySymbol'].split(' / ')[0] + ' ' + \
-                    pair['displaySymbol'].split(' / ')[1] + ' ' + str(pair['pricePrecision']) + ' 1 1 0 0'
-        print(pair_data, flush=True)
+        if pair['type'] == 'Spot':
+            pair_data = '@MD ' + pair['displaySymbol'].split(' / ')[0] + pair['displaySymbol'].split(' / ')[1] + \
+                        ' spot ' + pair['displaySymbol'].split(' / ')[0] + ' ' + \
+                        pair['displaySymbol'].split(' / ')[1] + ' ' + str(pair['pricePrecision']) + ' 1 1 0 0'
+            print(pair_data, flush=True)
     print('@MDEND')
 
 
@@ -54,7 +56,7 @@ def get_order_books_and_deltas(message, update):
     # check if bids array is not Null
     if 'bids' in message['book'] and message['book']['bids']:
         order_answer = '$ ' + str(get_unix_time()) + ' ' + s_name + ' B '
-        pq = '|'.join(f"{str('{0:.9f}'.format(elem[1]/1000))}@{str('{0:.9f}'.format(elem[0]/10000))}"
+        pq = '|'.join(f"{str('{0:.4f}'.format(elem[1]/1000))}@{str('{0:.4f}'.format(elem[0]/10000))}"
                       for elem in message['book']['bids'])
         # check if the input data is full order book or just update
         if update:
@@ -66,7 +68,7 @@ def get_order_books_and_deltas(message, update):
     # check if asks array is not Null
     if 'asks' in message['book'] and message['book']['asks']:
         order_answer = '$ ' + str(get_unix_time()) + ' ' + s_name + ' S '
-        pq = '|'.join(f"{str('{0:.9f}'.format(elem[1] / 1000))}@{str('{0:.9f}'.format(elem[0] / 10000))}"
+        pq = '|'.join(f"{str('{0:.4f}'.format(elem[1] / 1000))}@{str('{0:.4f}'.format(elem[0] / 10000))}"
                       for elem in message['book']['asks'])
         # check if the input data is full order book or just update
         if update:
