@@ -22,7 +22,7 @@ async def metadata():
     for pair in currencies:
         if pair['active']:
             pair_data = '@MD ' + pair['symbol'] + ' spot ' + pair['baseCurrency'] + ' ' + pair['quoteCurrency'] + \
-                        ' ' + pair['baseDecimalPlaces'] + ' 1 1'
+                        ' ' + pair['baseDecimalPlaces'] + ' 1 1 0 0'
             print(pair_data, flush=True)
     print('@MDEND')
 
