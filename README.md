@@ -13,6 +13,11 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 10. Bitget(python, websocket) 
 11. Bitforex(python, websocket)
 12. Hitbtc(python, websocket)
+13. Changelly-pro(python, websocket)
+14. Phemex(python, websocket)
+15. Toobit(python, websocket)
+16. Trubit-pro(python, websocket)
+
  
 Rules for writting fetchers:
   1. use python(later maybe go)
