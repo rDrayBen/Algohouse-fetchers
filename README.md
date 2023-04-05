@@ -17,6 +17,11 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 14. Phemex(python, websocket)
 15. Toobit(python, websocket)
 16. Trubit-pro(python, websocket)
+17. Valr(python, websocket)
+18. DeltaExchange(python, websocket)
+19. FMFW(python, websocket)
+20. LocalTrade(python, websocket)
+21. XtCom(python, websocket)
 
  
 Rules for writting fetchers:
