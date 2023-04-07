@@ -22,7 +22,8 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 19. FMFW(python, websocket)
 20. LocalTrade(python, websocket)
 21. XtCom(python, websocket)
-
+22. Kuna(python, websocket)
+23. Bitcointrade(python, websocket)
  
 Rules for writting fetchers:
   1. use python(later maybe go)
