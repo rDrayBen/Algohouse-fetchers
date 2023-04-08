@@ -24,6 +24,7 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 21. XtCom(python, websocket)
 22. Kuna(python, websocket)
 23. Bitcointrade(python, websocket)
+24. WaziX(python, websocket)
  
 Rules for writting fetchers:
   1. use python(later maybe go)
