@@ -17,6 +17,19 @@ for element in currencies["symbols"]:
 		list_currencies.append(element["symbol"])
 
 
+# get metadata about each pair of symbols
+async def metadata():
+	for element in currencies["symbols"]:
+		if element["status"] == "TRADING":
+			pair_data = '@MD ' + element['baseAsset'] + '-' + element['quoteAsset'] + ' spot ' + \
+						element['baseAsset'] + ' ' + element['quoteAsset'] + \
+						' ' + str(str(element['quotePrecision'])[::-1].find('.')) + ' 1 1 0 0'
+			print(pair_data, flush=True)
+
+
+print('@MDEND')
+
+
 # get time in unix format
 def get_unix_time():
 	return round(time.time() * 1000)
@@ -61,7 +74,7 @@ async def heartbeat(ws):
 		await ws.send(json.dumps({
 			"ping": get_unix_time()
 		}))
-		await asyncio.sleep(10)
+		await asyncio.sleep(5)
 
 
 async def main():
