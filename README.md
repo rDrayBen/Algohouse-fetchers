@@ -25,6 +25,8 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 22. Kuna(python, websocket)
 23. Bitcointrade(python, websocket)
 24. WaziX(python, websocket)
+25. Digifinex(javascript, websocket)
+26. BTSE(javascript, websocket)
  
 Don`t forget to write that your fetcher is taken here https://docs.google.com/spreadsheets/d/1-H__DoZUpnFQVFgJ8vkQAWFqBcY6ROOTWN-IEE9wwj4/edit#gid=0
  
