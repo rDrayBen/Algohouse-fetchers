@@ -14,7 +14,7 @@ WS_URL = 'wss://api.global.crosstower.com/api/2/ws/public'
 for element in currencies:
 	list_currencies.append(element["id"])
 
-print(list_currencies)
+
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in currencies:
