@@ -32,30 +32,30 @@ async def heartbeat(ws):
 
 async def meta(data):
     for i in data['datas']:
-        print("@MD", i['symbol'], "spot", i['base-currency'], i['quote-currency'], i['price-precision'], 1, 1, 0, 0,
+        print("@MD", i['symbol'].upper(), "spot", i['base-currency'].upper(), i['quote-currency'].upper(), i['price-precision'], 1, 1, 0, 0,
               end="\n")
     print("@MDEND")
 
 def print_trade(data):
     if data[4] == "asks":
-        print("!", round(time.time() * 1000), data[3], "S", data[5], data[6], end="\n")
+        print("!", round(time.time() * 1000), data[3].upper(), "S", data[5], data[6], end="\n")
     else:
-        print("!", round(time.time() * 1000), data[3], "B", data[5], data[6], end="\n")
+        print("!", round(time.time() * 1000), data[3].upper(), "B", data[5], data[6], end="\n")
 
 
 def print_orderbook(data, isSnapshot):
     if isSnapshot:
         if data[4]['asks'] != []:
-            print("$", round(time.time() * 1000), data[2], 'S', "|".join(i[1] + "@" + i[0] for i in data[4]['asks']),
+            print("$", round(time.time() * 1000), data[2].upper(), 'S', "|".join(i[1] + "@" + i[0] for i in data[4]['asks']),
                   "R", end='\n')
         if data[4]['bids'] != []:
-            print("$", round(time.time() * 1000), data[2], 'B', "|".join(i[1] + "@" + i[0] for i in data[4]['bids']),
+            print("$", round(time.time() * 1000), data[2].upper(), 'B', "|".join(i[1] + "@" + i[0] for i in data[4]['bids']),
                   "R", end='\n')
     else:
         if data[4] == "ASK":
-            print("$", round(time.time() * 1000), data[3], "S", f"{data[6]}@{data[5]}", end='\n')
+            print("$", round(time.time() * 1000), data[3].upper(), "S", f"{data[6]}@{data[5]}", end='\n')
         if data[4] == "BID":
-            print("$", round(time.time() * 1000), data[3], "B", f"{data[6]}@{data[5]}", end='\n')
+            print("$", round(time.time() * 1000), data[3].upper(), "B", f"{data[6]}@{data[5]}", end='\n')
 
 async def main():
     try:
