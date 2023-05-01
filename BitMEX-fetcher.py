@@ -22,6 +22,8 @@ async def heartbeat(ws):
 
 async def meta(pairs_api_response):
     for i in pairs_api_response:
+        if i['quoteCurrency'] == "XXX":
+            continue
         precission = str(i["tickSize"])[::-1].find(".")
         if precission == -1:
             print("@MD", i['symbol'], "spot", i["rootSymbol"], i["quoteCurrency"], 0,
