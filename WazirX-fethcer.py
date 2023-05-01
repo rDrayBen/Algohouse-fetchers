@@ -25,31 +25,31 @@ async def heartbeat(ws):
 
 async def meta(data):
     for i in data:
-        print("@MD", i['baseAsset'].upper() + "/"+i['quoteAsset'].upper(), "spot", i['baseAsset'].upper(), i['quoteAsset'].upper(),
+        print("@MD", i['baseAsset'].upper() + "/" +i ['quoteAsset'].upper(), "spot", i['baseAsset'].upper(), i['quoteAsset'].upper(),
               i['quoteAssetPrecision'], 1, 1, 0, 0, end='\n')
     print("@MDEND")
 
 def print_trades(data):
-    print("!", round(time.time() * 1000), data['data']['trades'][0]["s"], data['data']['trades'][0]['S'][0].upper(),
+    print("!", round(time.time() * 1000), data['data']['trades'][0]["s"].upper(), data['data']['trades'][0]['S'][0].upper(),
           data['data']['trades'][0]["p"], data['data']['trades'][0]['q'], end='\n')
 
 def print_orderbook(data, isSnapshot):
     if isSnapshot:
         if data['data']['a'] != []:
-            print("$", round(time.time() * 1000), data['data']['s'], "S",
-                  "|".join(i[0]+"@"+i[1] for i in data['data']['a']),
+            print("$", round(time.time() * 1000), data['data']['s'].upper(), "S",
+                  "|".join(i[1]+"@"+i[0] for i in data['data']['a']),
                   "R", end="\n")
         if data['data']['b'] != []:
-            print("$", round(time.time() * 1000), data['data']['s'], "B",
-                  "|".join(i[0] + "@" + i[1] for i in data['data']['b']),
+            print("$", round(time.time() * 1000), data['data']['s'].upper(), "B",
+                  "|".join(i[1] + "@" + i[0] for i in data['data']['b']),
                   "R", end="\n")
     else:
         if data['data']['a'] != []:
-            print("$", round(time.time() * 1000), data['data']['s'], "S",
-                  "|".join(i[0] + "@" + i[1] for i in data['data']['a']), end="\n")
+            print("$", round(time.time() * 1000), data['data']['s'].upper(), "S",
+                  "|".join(i[1] + "@" + i[0] for i in data['data']['a']), end="\n")
         if data['data']['b'] != []:
-            print("$", round(time.time() * 1000), data['data']['s'], "B",
-                  "|".join(i[0] + "@" + i[1] for i in data['data']['b']), end="\n")
+            print("$", round(time.time() * 1000), data['data']['s'].upper(), "B",
+                  "|".join(i[1] + "@" + i[0] for i in data['data']['b']), end="\n")
 
 async def main():
     try:
