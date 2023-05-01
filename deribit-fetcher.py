@@ -84,7 +84,7 @@ async def main():
         instrument_name = []
         resp_instrument = []
         for i in currencies:
-            response_instruments = requests.get(API_URL + API_SYMBOLS + i)
+            response_instruments = requests.get(API_URL + API_SYMBOLS + i + "&kind=spot")
             symbol_ = [j['price_index'] for j in response_instruments.json()["result"] if j['is_active'] == True]
             instrument_name += [k['instrument_name'] for k in response_instruments.json()['result'] if k['is_active'] == True]
             symbols += symbol_
