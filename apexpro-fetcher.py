@@ -65,7 +65,7 @@ async def heartbeat(ws):
 	while True:
 		await ws.send(json.dumps({
 			"op":"ping",
-			"args":[f"{get_unix_time()}"]
+			"args":["1661415022821"]
 		}))
 		await asyncio.sleep(5)
 
