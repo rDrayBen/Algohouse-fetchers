@@ -29,7 +29,7 @@ async def metadata():
 def get_unix_time():
 	return round(time.time() * 1000)
 
-WS_URL = f'wss://quote.pro.apex.exchange/realtime_public?v=2&timestamp={get_unix_time()}'
+WS_URL = f'wss://quote.pro.apex.exchange/realtime_public'
 
 def get_trades(var):
 	trade_data = var
