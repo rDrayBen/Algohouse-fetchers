@@ -28,6 +28,6 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 25. Digifinex(javascript, websocket)
 26. BTSE(javascript, websocket)
 27. BKEX(javascript, websocket)
- 
+28. Dcoin(javascript, websocket)
 Don`t forget to write that your fetcher is taken here https://docs.google.com/spreadsheets/d/1-H__DoZUpnFQVFgJ8vkQAWFqBcY6ROOTWN-IEE9wwj4/edit#gid=0
  
