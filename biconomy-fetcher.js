@@ -35,7 +35,7 @@ async function Metadata(){
 
 //function to get current time in unix format
 function getUnixTime(){
-    return Math.floor(Date.now() / 1000);
+    return Math.floor(Date.now());
 }
 
 Number.prototype.noExponents = function() {
@@ -63,7 +63,7 @@ async function getTrades(message){
     message['params'][1].forEach((item)=>{
         var trade_output = '! ' + getUnixTime() + ' ' + 
         message['params'][0] + ' ' + 
-        item['type'][0].toUpperCase() + ' ' + item['price'] + ' ' + item['amount'];
+        item['type'][0].toUpperCase() + ' ' + parseFloat(item['price']).noExponents() + ' ' + parseFloat(item['amount']).noExponents();
         console.log(trade_output);
     });
 }
@@ -76,7 +76,7 @@ async function getOrders(message, update){
         var order_answer = '$ ' + getUnixTime() + ' ' + message['params'][2] + ' B '
         var pq = '';
         for(let i = 0; i < message['params'][1]['bids'].length; i++){
-            pq += (parseInt(message['params'][1]['bids'][i][1])).noExponents() + '@' + (parseInt(message['params'][1]['bids'][i][0])).noExponents() + '|';
+            pq += (parseFloat(message['params'][1]['bids'][i][1])).noExponents() + '@' + (parseFloat(message['params'][1]['bids'][i][0])).noExponents() + '|';
         }
         pq = pq.slice(0, -1);
         // check if the input data is full order book or just update
@@ -93,7 +93,7 @@ async function getOrders(message, update){
         var order_answer = '$ ' + getUnixTime() + ' ' + message['params'][2] + ' S '
         var pq = '';
         for(let i = 0; i < message['params'][1]['asks'].length; i++){
-            pq += (parseInt(message['params'][1]['asks'][i][1])).noExponents() + '@' + (parseInt(message['params'][1]['asks'][i][0])).noExponents() + '|';
+            pq += (parseFloat(message['params'][1]['asks'][i][1])).noExponents() + '@' + (parseFloat(message['params'][1]['asks'][i][0])).noExponents() + '|';
         }
         pq = pq.slice(0, -1);
         // check if the input data is full order book or just update
@@ -158,7 +158,7 @@ function Connect1(){
 
     // func to handle errors
     ws1.onerror = function(error) {
-        console.log(`Error ${error} occurred in ws1`);
+
     };
 }
 
@@ -226,7 +226,7 @@ async function Connect2(){
 
         // func to handle errors
         wsArr[i].onerror = function(error) {
-            console.log(`Error ${error} occurred in ws2`);
+
         };
     }
     
