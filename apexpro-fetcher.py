@@ -8,7 +8,7 @@ currency_url = 'https://pro.apex.exchange/api/v1/symbols'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://quote.pro.apex.exchange/realtime_public?v=2&timestamp=1661415017232'
+
 
 for element in currencies["data"]["perpetualContract"]:
 	list_currencies.append(element["crossSymbolName"])
@@ -29,6 +29,7 @@ async def metadata():
 def get_unix_time():
 	return round(time.time() * 1000)
 
+WS_URL = f'wss://quote.pro.apex.exchange/realtime_public?v=2&timestamp={get_unix_time()}'
 
 def get_trades(var):
 	trade_data = var
@@ -65,7 +66,7 @@ async def heartbeat(ws):
 	while True:
 		await ws.send(json.dumps({
 			"op":"ping",
-			"args":["1661415022821"]
+			"args":[f"{get_unix_time()}"]
 		}))
 		await asyncio.sleep(5)
 
