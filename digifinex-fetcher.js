@@ -40,7 +40,7 @@ async function Metadata(){
 
 //function to get current time in unix format
 function getUnixTime(){
-    return Math.floor(Date.now() / 1000);
+    return Math.floor(Date.now());
 }
 
 
