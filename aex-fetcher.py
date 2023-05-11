@@ -8,8 +8,7 @@ currency_url = 'https://api.aex.zone/v3/allpair.php'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://api.aex.zone/wsv3'
-WS_PUBLIC_SPOT_DEPTH5 = 'spot/depth5'
+WS_URL = 'wss://aex2.yxds.net.cn/wsv3'
 
 
 for element in currencies["data"]:
@@ -81,6 +80,7 @@ async def main():
 			# create task to get metadata about each pair of symbols
 			meta_data = asyncio.create_task(metadata())
 
+
 			for i in range(len(list_currencies)):
 				# create the subscription for trades
 				await ws.send(json.dumps({
@@ -109,9 +109,6 @@ async def main():
 						if dataJSON["cmd"] == 1:
 							get_trades(dataJSON)
 
-						# if received data is about updates
-						# if dataJSON["cmd"] == 3:
-						# 	get_order_books(dataJSON, update=True)
 
 						# if received data is about orderbooks
 						if dataJSON["cmd"] == 3 :
