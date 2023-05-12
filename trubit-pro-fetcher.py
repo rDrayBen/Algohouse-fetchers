@@ -10,7 +10,7 @@ answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 # base web socket url
-WS_URL = 'wss://wsapi.mexo.io/openapi/quote/ws/v1'
+WS_URL = 'wss://ws.trubit.com/openapi/quote/ws/v1'
 precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 10000000000, 100000000000,
              1000000000000, 10000000000000, 100000000000000, 1000000000000000, 10000000000000000]
 
@@ -103,7 +103,7 @@ async def subscribe(ws):
 
 async def main():
     # create connection with server via base ws url
-    async for ws in websockets.connect(WS_URL):
+    async for ws in websockets.connect(WS_URL, ping_interval=None):
         try:
             sub_task = asyncio.create_task(subscribe(ws))
             # create task to keep connection alive
