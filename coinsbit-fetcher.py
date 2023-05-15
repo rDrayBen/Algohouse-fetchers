@@ -10,15 +10,47 @@ answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 WS_URL = "wss://ws.coinsbit.io/"
-
 # check if the certain symbol pair is available
 for element in currencies["result"]:
 	list_currencies.append(element["name"])
 
+
+async def subscribe(ws, symbol):
+	id1 = 1
+	id2 = 1000
+	# create the subscription for trades
+	await ws.send(json.dumps({
+		"method": "deals.subscribe",
+		"params": [
+			f"{symbol}"
+		],
+		"id": id1
+	}))
+
+	id1 += 1
+
+	await asyncio.sleep(0.001)
+
+	# create the subscription for full orderbooks and updates
+	await ws.send(json.dumps({
+		"method": "depth.subscribe",
+		"params": [
+			f"{symbol}",
+			100,
+			"0"
+		],
+		"id": id2
+	}))
+
+	id2 += 1
+
+	await asyncio.sleep(0.001)
+
+
 # get metadata about each pair of symbols
 async def metadata():
 	for element in currencies["result"]:
-		pair_data = '@MD ' + element['stock'] + '-' + element['money'] + ' spot ' + \
+		pair_data = '@MD ' + element['stock'] + '_' + element['money'] + ' spot ' + \
 					element['stock'] + ' ' + element['money'] + \
 					' ' + str(element['moneyPrec']) + ' 1 1 0 0'
 
@@ -36,7 +68,7 @@ def get_unix_time():
 def get_trades(var):
 	trade_data = var
 	print('!', get_unix_time(), trade_data['params'][0],
-		  "S" if trade_data['params'][1][0]["type"]=="sell" else "B", trade_data['params'][1][0]['price'],
+		  "S" if trade_data['params'][1][0]["type"] == "sell" else "B", trade_data['params'][1][0]['price'],
 		  trade_data['params'][1][0]["amount"], flush=True)
 
 
@@ -68,74 +100,52 @@ def get_order_books(var, depth_update):
 async def heartbeat(ws):
 	while True:
 		await ws.send(json.dumps({
-			"method":"server.ping",
-  			"params":[],
-  			"id": 1000
+			"method": "server.ping",
+			"params": [],
+			"id": 1000
 		}))
 		await asyncio.sleep(5)
 
-async def main():
-	# create connection with server via base ws url
-	async for ws in websockets.connect(WS_URL, ping_interval=None):
-		try:
-			# create task to keep connection alive
-			pong = asyncio.create_task(heartbeat(ws))
 
-			# create task to get metadata about each pair of symbols
-			meta_data = asyncio.create_task(metadata())
+async def socket(symbol):
+		# create connection with server via base ws url
+		async for ws in websockets.connect(WS_URL, ping_interval=None):
+			try:
 
-			print(meta_data)
+				# create task to keep connection alive
+				pong = asyncio.create_task(heartbeat(ws))
+				subscription = asyncio.create_task(subscribe(ws, symbol))
 
-			for i in range(len(list_currencies)):
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"method":"deals.subscribe",
-					"params": [
-						f"{list_currencies[i]}"
-					],
-					"id": 111
-				}))
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"method":"depth.subscribe",
-					"params": [
-						f"{list_currencies[i]}",
-                        50,
-						"0"
-					],
-					"id": 111
-				}))
-
-			while True:
-
-				data = await ws.recv()
-
-				dataJSON = json.loads(data)
-
-				if "method" in dataJSON:
+				async for data in ws:
 
 					try:
+						dataJSON = json.loads(data)
 
-						# if received data is about trades
-						if dataJSON['method'] == 'deals.update':
-							get_trades(dataJSON)
+						if "method" in dataJSON:
+							# if received data is about trades
+							if dataJSON['method'] == 'deals.update':
+								get_trades(dataJSON)
 
-						#if received data is about updates
-						elif dataJSON['params'][0] == False:
-							get_order_books(dataJSON, depth_update=True)
+							# if received data is about updates
+							if dataJSON['method'] == 'depth.update' and dataJSON['params'][0] == False:
+								get_order_books(dataJSON, depth_update=True)
 
-						# # if received data is about orderbooks
-						elif dataJSON['params'][0] == True:
-							get_order_books(dataJSON, depth_update=False)
-
-						else:
-							pass
+							# if received data is about orderbooks
+							if dataJSON['method'] == 'depth.update' and dataJSON['params'][0] == True:
+								get_order_books(dataJSON, depth_update=False)
 
 					except Exception as ex:
 						print(f"Exception {ex} occurred")
 
-		except Exception as conn_ex:
-			print(f"Connection exception {conn_ex} occurred")
+
+			except Exception as conn_ex:
+				print(f"Connection exception {conn_ex} occurred")
+
+
+async def main():
+	# create task to get metadata about each pair of symbols
+	meta_data = asyncio.create_task(metadata())
+	await asyncio.wait([asyncio.create_task(socket(symbol)) for symbol in list_currencies])
 
 asyncio.run(main())
