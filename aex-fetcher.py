@@ -34,7 +34,7 @@ def get_trades(var):
 	trade_data = var
 	if 'trade' in trade_data:
 		for elem in trade_data["trade"]:
-			print('!', get_unix_time(), trade_data['symbol'],
+			print('!', get_unix_time(), trade_data['symbol'].upper(),
 				  "B" if elem[3] == "buy" else "S", elem[2],
 				  elem[1], flush=True)
 
@@ -42,7 +42,7 @@ def get_trades(var):
 def get_order_books(var, update):
 	order_data = var
 	if 'asks' in order_data['depth'] and len(order_data["depth"]["asks"]) != 0:
-		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'] + ' S '
+		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'].upper() + ' S '
 		pq = "|".join(el[0] + "@" + el[1] for el in order_data["depth"]["asks"])
 		answer = order_answer + pq
 		# checking if the input data is full orderbook or just update
@@ -52,7 +52,7 @@ def get_order_books(var, update):
 			print(answer + " R")
 
 	if 'bids' in order_data['depth'] and len(order_data["depth"]["bids"]) != 0:
-		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'] + ' B '
+		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'].upper() + ' B '
 		pq = "|".join(el[0] + "@" + el[1] for el in order_data["depth"]["bids"])
 		answer = order_answer + pq
 		# checking if the input data is full orderbook or just update
