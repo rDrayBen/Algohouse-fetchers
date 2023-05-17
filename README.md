@@ -36,6 +36,6 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 33. BeQuant(python, websockets)
 34. ZBG(python, websockets)
 35. BitMex(python, websockets)
+36. Bibox(javascript, websocket)
 
-Don't forget to write that your fetcher is taken here https://docs.google.com/spreadsheets/d/1-H__DoZUpnFQVFgJ8vkQAWFqBcY6ROOTWN-IEE9wwj4/edit#gid=0
  
