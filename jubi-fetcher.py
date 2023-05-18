@@ -9,7 +9,7 @@ currency_url = 'https://api.jbex.com/openapi/v1/brokerInfo'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://wsapi.jbex.com/openapi/quote/ws/v1'
+WS_URL = 'wss://ws.jbex.com/ws/quote/v1'
 
 # check if the certain symbol pair is available
 for element in currencies["symbols"]:
@@ -25,9 +25,7 @@ async def metadata():
 						element['baseAsset'] + ' ' + element['quoteAsset'] + \
 						' ' + str(str(element['quotePrecision'])[::-1].find('.')) + ' 1 1 0 0'
 			print(pair_data, flush=True)
-
-
-print('@MDEND')
+	print('@MDEND')
 
 
 # get time in unix format
@@ -74,7 +72,30 @@ async def heartbeat(ws):
 		await ws.send(json.dumps({
 			"ping": get_unix_time()
 		}))
-		await asyncio.sleep(5)
+		await asyncio.sleep(0.01)
+
+
+async def subscribe(ws):
+	for i in range(len(list_currencies)):
+		# create the subscription for trades
+		await ws.send(json.dumps({
+			"symbol": f"{list_currencies[i]}",
+			"topic": "trade",
+			"event": "sub",
+			"params": {
+				"binary": False
+			}
+		}))
+
+		# create the subscription for full orderbooks and updates
+		await ws.send(json.dumps({
+			"symbol": f"{list_currencies[i]}",
+			"topic": "diffDepth",
+			"event": "sub",
+			"params": {
+				"binary": False
+			}
+		}))
 
 
 async def main():
@@ -87,28 +108,9 @@ async def main():
 			# create task to get metadata about each pair of symbols
 			meta_data = asyncio.create_task(metadata())
 
+			subscription = asyncio.create_task(subscribe(ws))
+
 			print(meta_data)
-
-			for i in range(len(list_currencies)):
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"symbol": f"{list_currencies[i]}",
-					"topic": "trade",
-					"event": "sub",
-					"params": {
-						"binary": False
-					}
-				}))
-
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"symbol": f"{list_currencies[i]}",
-					"topic": "diffDepth",
-					"event": "sub",
-					"params": {
-						"binary": False
-					}
-				}))
 
 			while True:
 
@@ -117,7 +119,10 @@ async def main():
 
 					dataJSON = json.loads(data)
 
-					if 'topic' in dataJSON and 'data' in dataJSON:
+					if 'error' in dataJSON:
+						pass
+
+					elif 'topic' in dataJSON:
 
 						# if received data is about trades
 						if dataJSON['topic'] == 'trade' and not dataJSON['f']:
@@ -137,14 +142,14 @@ async def main():
 						else:
 							pass
 
-					elif 'error' in dataJSON:
-						pass
-
 				except Exception as ex:
 					print(f"Exception {ex} occurred")
 
+
 		except Exception as conn_ex:
 			print(f"Connection exception {conn_ex} occurred")
+
+
 
 
 asyncio.run(main())
