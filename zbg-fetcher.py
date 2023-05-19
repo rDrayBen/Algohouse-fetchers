@@ -60,6 +60,8 @@ def print_orderbook(data, isSnapshot):
 async def main():
     try:
         response = requests.get(API_URL+API_SYMBOLS)
+        if response.status_code >= 500:
+            exit(0)
         meta_task = asyncio.create_task(meta(response.json()))
         async for ws in websockets.connect(WS_URL):
             try:
