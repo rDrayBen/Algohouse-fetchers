@@ -37,5 +37,6 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 34. ZBG(python, websockets)
 35. BitMex(python, websockets)
 36. Bibox(javascript, websocket)
+37. LCX(javascript, websocket)
 
  
