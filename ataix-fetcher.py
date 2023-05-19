@@ -18,7 +18,7 @@ for elem in currencies["result"]:
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in currencies["result"]:
-		pair_data = '@MD ' + pair["base"] + '-' + pair["quote"] + ' spot ' + \
+		pair_data = '@MD ' + pair["base"] + '/' + pair["quote"] + ' spot ' + \
 					pair["base"] + ' ' + pair["quote"] + \
 					' ' + str(pair["pricePrecision"]) + ' 1 1 0 0'
 
