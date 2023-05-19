@@ -26,11 +26,17 @@ async def hearbeat(ws):
         await ws.send(json.dumps({"method":"ping"}))
         await asyncio.sleep(PING_TIMEOUT)
 async def meta(pairs, precission):
+    print(len(pairs), len(precission))
     for i in range(len(pairs)):
         base = pairs[i].find("_")
-        print("@MD", pairs[i], "spot", pairs[i][0:base], pairs[i][base+1:len(pairs[i])], precission[i],
-              1, 1, 0, 0, end="\n")
+        try:
+            print("@MD", pairs[i], "spot", pairs[i][0:base], pairs[i][base+1:len(pairs[i])], precission[i],
+                  1, 1, 0, 0, end="\n")
+        except:
+            print("@MD", pairs[i], "spot", pairs[i][0:base], pairs[i][base + 1:len(pairs[i])], 0,
+                  1, 1, 0, 0, end="\n")
     print("@MDEND")
+
 def print_trades(data):
     print("!", round(time.time() * 1000), data['body']['pair'], data['body']['taker_side'][0].upper(), str(data['body']['price']),
           str("{0:4f}".format(data['body']['amount'])))
@@ -58,7 +64,6 @@ async def main():
         counter = {}
         for i in symbols:
             counter[i] = 0
-
         trade_channel = ["trade@" + i for i in symbols]
         orderbook_channel = ["orderbook/level_3@" + i for i in symbols]
         meta_task = asyncio.create_task(meta(symbols, currencies))
@@ -72,7 +77,6 @@ async def main():
 
                     try:
                         pair = dataJSON['body']['pair']
-
                         if dataJSON['topic'] in trade_channel and 'amount' in dataJSON['body']:
                              print_trades(dataJSON)
                         if counter[pair] > 1:
