@@ -1,10 +1,15 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import fs from "fs";
 
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://www.biconomy.com/ws';
 const restUrl = "https://www.biconomy.com/api/v1/exchangeInfo";
+var conn_error = 0;
+var trade_amount = 0;
+var order_amount = 0;
+var delta_amount = 0;
 
 
 const response = await fetch(restUrl);
@@ -114,13 +119,24 @@ function Connect1(){
     // call this func when first opening connection
     ws1.onopen = function(e) {
         // create ping function to keep connection alive
-        ws1.ping();
+        setInterval(function() {
+            if (ws1.readyState === WebSocket.OPEN) {
+              ws1.send(JSON.stringify(
+                {
+                    "method":"server.ping",
+                    "params":[],
+                    "id":5160
+                }
+              ));
+              console.log('Ping request sent');
+            }
+          }, 60000);
         // sub for trades
         ws1.send(JSON.stringify(
             {
                 "method":"deals.subscribe",
                 "params":currencies,
-                "id":2070
+                "id":20
             }
         ))
     };
@@ -133,6 +149,7 @@ function Connect1(){
             // console.log(dataJSON);
             if (dataJSON['method'] === 'deals.update' && dataJSON['params'][1].length < 5){
                 getTrades(dataJSON);
+                trade_amount += 1;
             }else if (dataJSON['method'] === 'deals.update' && dataJSON['params'][1].length > 5){
                 // skip trades history
             }else{
@@ -150,6 +167,7 @@ function Connect1(){
             console.log(`Connection 1 closed with code ${event.code} and reason ${event.reason}`);
         } else {
             console.log('Connection 1 lost');
+            conn_error += 1;
             setTimeout(function() {
                 Connect1();
                 }, 500);
@@ -158,77 +176,81 @@ function Connect1(){
 
     // func to handle errors
     ws1.onerror = function(error) {
-
+        console.log(error);
     };
 }
 
-var wsArr = [];
-for(let i = 0; i < currencies.length; i++){
-    var wsTemp = new WebSocket(wsUrl);
-    wsArr.push(wsTemp);
-}
   
 
-async function Connect2(){
+async function Connect2(index){
     // create a new websocket instance
+    var ws2 = new WebSocket(wsUrl);
     
-    
-    for(let i = 0; i < wsArr.length; i++){
-        // call this func when first opening connection
-        wsArr[i].onopen = function(e) {
-            // create ping function to keep connection alive
-            wsArr[i].ping();
-            
-            // sub for orders
-            wsArr[i].send(JSON.stringify(
+    ws2.onopen = function(e) {
+        // create ping function to keep connection alive
+        setInterval(function() {
+            if (ws2.readyState === WebSocket.OPEN) {
+              ws2.send(JSON.stringify(
                 {
-                    "method":"depth.subscribe",
-                    "params":[currencies[i],100,"0.00000001"],
-                    "id":2066
+                    "method":"server.ping",
+                    "params":[],
+                    "id":5160
                 }
-            ))        
-        };
-
-
-        // func to handle input messages
-        wsArr[i].onmessage = function(event) {
-            var dataJSON;
-            try{
-                dataJSON = JSON.parse(event.data);
-                //console.log(dataJSON);
-                if (dataJSON['method'] === 'depth.update' && dataJSON['params'][0] === true){
-                    getOrders(dataJSON, false);
-                }else if (dataJSON['method'] === 'depth.update' && dataJSON['params'][0] === false){
-                    getOrders(dataJSON, true);
-                }else{
-                    console.log(dataJSON);
-                }        
-            }catch(e) {
-                // console.log(e);
-                // error may occurr cause some part of incoming data can`t be properly parsed in json format due to inapropriate symbols
-                // error only occurrs in messages that confirming subs
-                // error caused here is exchanges fault
+              ));
+              console.log('Ping request sent');
             }
-        };
-
-
-        // func to handle closing connection
-        wsArr[i].onclose = function(event) {
-            if (event.wasClean) {
-                console.log(`Connection 2 closed with code ${event.code} and reason ${event.reason}`);
-            } else {
-                console.log('Connection 2 lost');
-                setTimeout(async function() {
-                    Connect2();
-                    }, 500);
+          }, 60000);
+        // sub for orders
+        ws2.send(JSON.stringify(
+            {
+                "method":"depth.subscribe",
+                "params":[currencies[index],100,"0.00000001"],
+                "id":2000+index
             }
-        };
-
-        // func to handle errors
-        wsArr[i].onerror = function(error) {
-
-        };
+        ))        
     }
+
+
+    // func to handle input messages
+    ws2.onmessage = function(event) {
+        var dataJSON;
+        try{
+            dataJSON = JSON.parse(event.data);
+            if (dataJSON['method'] === 'depth.update' && dataJSON['params'][0] === true){
+                getOrders(dataJSON, false);
+                order_amount += 1;
+            }else if (dataJSON['method'] === 'depth.update' && dataJSON['params'][0] === false){
+                getOrders(dataJSON, true);
+                delta_amount += 1;
+            }else{
+                console.log(dataJSON);
+            }        
+        }catch(e) {
+            // console.log(e);
+            // error may occurr cause some part of incoming data can`t be properly parsed in json format due to inapropriate symbols
+            // error only occurrs in messages that confirming subs
+            // error caused here is exchanges fault
+        }
+    };
+
+
+    // func to handle closing connection
+    ws2.onclose = function(event) {
+        if (event.wasClean) {
+            console.log(`Connection 2 closed with code ${event.code} and reason ${event.reason}`);
+        } else {
+            console.log('Connection 2 lost');
+            conn_error += 1;
+            setTimeout(async function() {
+                Connect2(index);
+                }, 500);
+        }
+    };
+
+    // func to handle errors
+    ws2.onerror = function(error) {
+        console.log(error);
+    };
     
 }
 
@@ -236,4 +258,30 @@ async function Connect2(){
 Metadata();
 
 Connect1();
-Connect2();
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+var wsArr = [];
+for(let i = 0; i < currencies.length; i++){
+    wsArr.push(Connect2(i));
+    await sleep(500);
+}
+
+async function appendToFileWithInterval() {
+    const filePath = 'D:\\Algohouse\\FIXING\\biconomy-stat1.txt';
+    while (true) {
+        var date = String(new Date());
+        var data = `time: ${date.replace(' GMT+0300 (за східноєвропейським літнім часом)', '')}\t\tconn error: ${conn_error}\t\ttrades: ${trade_amount}\t\torders: ${order_amount}\t\tdeltas: ${delta_amount}\n`;
+        
+        try {
+            // Дописуємо дані в кінець файлу
+            fs.appendFileSync(filePath, data);
+            console.log('Дані успішно дописані в файл.');
+        } catch (error) {
+            console.error('Виникла помилка при дописуванні в файл:', error);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 60000)); // Затримка 60 секунд
+    }
+}
+appendToFileWithInterval();
