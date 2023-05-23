@@ -1,12 +1,10 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
-import zlib from 'zlib';
 
 // define the websocket and REST URLs
 const tradeWsUrl = 'wss://ws.btse.com/ws/spot';
 const orderWsUrl = 'wss://ws.btse.com/ws/oss/spot';
 const restUrl = "https://api.btse.com/spot/api/v3.2/market_summary";
-
 
 const response = await fetch(restUrl);
 //extract JSON from the http response
@@ -103,7 +101,14 @@ function Connect1(){
     // call this func when first opening connection
     ws1.onopen = function(e) {
         // create ping function to keep connection alive
-        ws1.ping();
+        setInterval(function() {
+            if (ws1.readyState === WebSocket.OPEN) {
+              ws1.send(JSON.stringify(
+                "ping"
+              ));
+              console.log('Ping request sent');
+            }
+          }, 20000);
         currencies.forEach((item)=>{
             // sub for trades
             ws1.send(JSON.stringify(
@@ -164,7 +169,14 @@ function Connect2(){
     // call this func when first opening connection
     ws2.onopen = function(e) {
         // create ping function to keep connection alive
-        ws2.ping();
+        setInterval(function() {
+            if (ws2.readyState === WebSocket.OPEN) {
+              ws2.send(JSON.stringify(
+                "ping"
+              ));
+              console.log('Ping request sent');
+            }
+          }, 20000);
         currencies.forEach((item)=>{
             // sub for orders
             ws2.send(JSON.stringify(
@@ -224,4 +236,3 @@ Metadata();
 
 Connect1();
 Connect2();
-
