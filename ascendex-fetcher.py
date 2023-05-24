@@ -18,7 +18,7 @@ async def subscribe(ws, data):
         await ws.send(json.dumps({ "op": "req", "action":"depth-snapshot","args": {"symbol": f"{i}"}}))
         await asyncio.sleep(TIMEOUT)
         k+=1
-        await ws.send(json.dumps({ "op": "sub", "id": f"abc123{k}", "ch":f"bbo:{i}"}))
+        await ws.send(json.dumps({ "op": "sub", "id": f"abc123{k}", "ch":f"depth:{i}"}))
         await asyncio.sleep(TIMEOUT)
         k += 1
 
@@ -50,12 +50,12 @@ def print_orderbooks(data, isSnapshot):
             print("$", round(time.time() * 1000), data['symbol'], "S",
                   "|".join(str(i[1]) + "@" + str(i[0]) for i in data['data']['asks']), "R", end="\n")
     else:
-        if data['data']['bid'] != []:
+        if data['data']['bids'] != []:
             print("$", round(time.time() * 1000), data['symbol'], "B",
-                  str(data['data']['bid'][1]) + "@" + str(data['data']['bid'][0]), end="\n")
-        if data['data']['ask'] != []:
+                  "|".join(str(i[1]) + "@" + str(i[0]) for i in data['data']['bids']), end="\n")
+        if data['data']['asks'] != []:
             print("$", round(time.time() * 1000), data['symbol'], "S",
-                  str(data['data']['bid'][1]) + "@" + str(data['data']['ask'][0]), end="\n")
+                  "|".join(str(i[1]) + "@" + str(i[0]) for i in data['data']['asks']), end="\n")
 
 async def main():
     try:
@@ -73,7 +73,7 @@ async def main():
                         if 'data' in dataJSON:
                             if dataJSON["m"] == "depth-snapshot":
                                 print_orderbooks(dataJSON, 1)
-                            if dataJSON["m"] == "bbo":
+                            if dataJSON["m"] == "depth":
                                 print_orderbooks(dataJSON, 0)
                             if dataJSON["m"] == "trades":
                                 print_trades(dataJSON)
