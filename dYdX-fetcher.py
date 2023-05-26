@@ -13,7 +13,6 @@ WS_URL = 'wss://api.dydx.exchange/v3/ws'
 for key,value in currencies["markets"].items():
 	list_currencies.append(value["market"])
 
-print(currencies)
 
 # get metadata about each pair of symbols
 async def metadata():
