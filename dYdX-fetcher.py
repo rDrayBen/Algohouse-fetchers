@@ -13,12 +13,14 @@ WS_URL = 'wss://api.dydx.exchange/v3/ws'
 for key,value in currencies["markets"].items():
 	list_currencies.append(value["market"])
 
+print(currencies)
+
 # get metadata about each pair of symbols
 async def metadata():
-	for pair in currencies:
-		pair_data = '@MD ' + pair["baseCurrency"].upper() + '-' + pair["quoteCurrency"].upper() + ' spot ' + \
-					pair["baseCurrency"].upper() + ' ' + pair["quoteCurrency"].upper() + \
-					' ' + str(str(pair['tickSize'])[::-1].find('.')) + ' 1 1 0 0'
+	for key,value in currencies["markets"].items():
+		pair_data = '@MD ' + value["baseAsset"] + '-' + value["quoteAsset"] + ' spot ' + \
+					value["baseAsset"] + ' ' + value["quoteAsset"] + \
+					' ' + str(str(value['tickSize'])[::-1].find('.')) + ' 1 1 0 0'
 
 		print(pair_data, flush=True)
 
@@ -86,7 +88,7 @@ async def main():
 			pong = asyncio.create_task(heartbeat(ws))
 
 			# create task to get metadata about each pair of symbols
-			# meta_data = asyncio.create_task(metadata())
+			meta_data = asyncio.create_task(metadata())
 
 			for i in range(len(list_currencies)):
 
@@ -109,8 +111,6 @@ async def main():
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
-
-				print(dataJSON)
 
 				if "channel" in dataJSON:
 
