@@ -29,7 +29,7 @@ async def subscribe(ws, symbol):
 
 	id1 += 1
 
-	await asyncio.sleep(0.001)
+	await asyncio.sleep(0.01)
 
 	# create the subscription for full orderbooks and updates
 	await ws.send(json.dumps({
@@ -44,7 +44,7 @@ async def subscribe(ws, symbol):
 
 	id2 += 1
 
-	await asyncio.sleep(0.001)
+	await asyncio.sleep(300)
 
 
 # get metadata about each pair of symbols
@@ -67,9 +67,14 @@ def get_unix_time():
 # put the trade information in output format
 def get_trades(var):
 	trade_data = var
-	print('!', get_unix_time(), trade_data['params'][0],
-		  "S" if trade_data['params'][1][0]["type"] == "sell" else "B", trade_data['params'][1][0]['price'],
-		  trade_data['params'][1][0]["amount"], flush=True)
+	for elem in trade_data['params'][1]:
+		print("!", get_unix_time(), trade_data["params"][0],
+			  "S" if elem["type"][0] == "sell" else "B",
+			  elem["price"], elem['amount'], end="\n")
+
+	# print('!', get_unix_time(), trade_data['params'][0],
+	# 	  "S" if trade_data['params'][1][0]["type"] == "sell" else "B", trade_data['params'][1][0]['price'],
+	# 	  trade_data['params'][1][0]["amount"], flush=True)
 
 
 # put the orderbook and deltas information in output format
@@ -98,13 +103,15 @@ def get_order_books(var, depth_update):
 
 # process the situations when the server awaits "ping" request
 async def heartbeat(ws):
+	id3 = 2000
 	while True:
 		await ws.send(json.dumps({
 			"method": "server.ping",
 			"params": [],
-			"id": 1000
+			"id": 2000
 		}))
 		await asyncio.sleep(5)
+		id3+=1
 
 
 async def socket(symbol):
@@ -138,14 +145,32 @@ async def socket(symbol):
 					except Exception as ex:
 						print(f"Exception {ex} occurred")
 
+					except:
+						pass
+
 
 			except Exception as conn_ex:
 				print(f"Connection exception {conn_ex} occurred")
 
+			except:
+				continue
+
+
+async def handler():
+	meta_data = asyncio.create_task(metadata())
+	tasks=[]
+	for symbol in list_currencies:
+		tasks.append(asyncio.create_task(socket(symbol)))
+		await asyncio.sleep(0.1)
+
+	await asyncio.wait(tasks)
+
 
 async def main():
-	# create task to get metadata about each pair of symbols
-	meta_data = asyncio.create_task(metadata())
-	await asyncio.wait([asyncio.create_task(socket(symbol)) for symbol in list_currencies])
+	while True:
+		await handler()
+		await asyncio.sleep(300)
+
+
 
 asyncio.run(main())
