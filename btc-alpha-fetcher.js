@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 
+
 // define the websocket and REST URLs
 const wsUrl = 'wss://btc-alpha.com/alp-ws';
 const restUrl = "https://btc-alpha.com/api/v1/pairs/";
@@ -10,6 +11,7 @@ const response = await fetch(restUrl);
 //extract JSON from the http response
 const myJson = await response.json(); 
 var currencies = [];
+var orderbooks = {};
 
 
 // extract symbols from JSON returned information
@@ -20,7 +22,7 @@ for(let i = 0; i < myJson.length; ++i){
 
 // print metadata about pairs
 async function Metadata(){
-    myJson.forEach((item, index)=>{
+    myJson.forEach((item)=>{
         let pair_data = '@MD ' + item['name'] + ' spot ' + item['currency1'] + ' ' + item['currency2'] + ' ' 
         + item['price_precision'] + ' 1 1 0 0';
         console.log(pair_data);
@@ -52,15 +54,36 @@ async function getOrders(message, update){
         var order_answer = '$ ' + getUnixTime() + ' ' + message[2] + ' B '
         var pq = '';
         message[3].forEach((element)=>{
-            pq += (element[1][0] === '-' ? '0' : element[1]) + '@' + element[0] + '|';
+            // if pair [price, quantity] is like this ["27715.26000000", "-0.17600000"]
+            if(element[1][0] === '-'){
+                // check whether is incoming price value is in orderbook
+                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
+                    if(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] - parseFloat(element[1].slice(1)) >= 0){
+                        // change quantity in orderbook
+                        orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) - parseFloat(element[1].slice(1));
+                        // add pair to delta output
+                        pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                        // check if now quantity is 0, and delete pair [price] = quantity from orderbook
+                        if(parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) === 0){
+                            delete orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))];
+                        }
+                    }
+                }
+                // if pair [price, quantity] is like this ["27879.20000000", "0.13600000"]
+            }else{
+                // check whether is incoming price value is in orderbook
+                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
+                    // change quantity in orderbook
+                    orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) + parseFloat(element[1]);
+                    // add pair to delta output
+                    pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                }
+            }
+            
         })
         pq = pq.slice(0, -1);
-        // check if the input data is full order book or just update
-        if (update){
-            console.log(order_answer + pq)
-        }
-        else{
-            console.log(order_answer + pq + ' R')
+        if (pq !== ''){
+            console.log(order_answer + pq);
         }
     }
 
@@ -69,15 +92,36 @@ async function getOrders(message, update){
         var order_answer = '$ ' + getUnixTime() + ' ' + message[2] + ' S '
         var pq = '';
         message[4].forEach((element)=>{
-            pq += (element[1][0] === '-' ? '0' : element[1]) + '@' + element[0] + '|';
+            // if pair [price, quantity] is like this ["27715.26000000", "-0.17600000"]
+            if(element[1][0] === '-'){
+                // check whether is incoming price value is in orderbook
+                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
+                    if(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] - parseFloat(element[1].slice(1)) >= 0){
+                        // change quantity in orderbook
+                        orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) - parseFloat(element[1].slice(1));
+                        // add pair to delta output
+                        pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                        // check if now quantity is 0, and delete pair [price] = quantity from orderbook
+                        if(parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) === 0){
+                            delete orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))];
+                        }
+                    }
+                }
+            // if pair [price, quantity] is like this ["27879.20000000", "0.13600000"]
+            }else{
+                // check whether is incoming price value is in orderbook
+                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
+                    // change quantity in orderbook
+                    orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) + parseFloat(element[1]);
+                    // add pair to delta output
+                    pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                }
+            }
+            
         })
         pq = pq.slice(0, -1);
-        // check if the input data is full order book or just update
-        if (update){
-            console.log(order_answer + pq)
-        }
-        else{
-            console.log(order_answer + pq + ' R')
+        if (pq !== ''){
+            console.log(order_answer + pq);
         }
     }
 }
@@ -127,7 +171,7 @@ async function Connect(){
 
     // func to handle errors
     wsConnection.onerror = function(error) {
-        // console.log(`Error ${error} occurred`);
+        
     };
 }
     
@@ -135,9 +179,82 @@ async function Connect(){
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+Number.prototype.noExponents = function() {
+    var data = String(this).split(/[eE]/);
+    if (data.length == 1) return data[0];
+  
+    var z = '',
+      sign = this < 0 ? '-' : '',
+      str = data[0].replace('.', ''),
+      mag = Number(data[1]) + 1;
+  
+    if (mag < 0) {
+      z = sign + '0.';
+      while (mag++) z += '0';
+      return z + str.replace(/^\-/, '');
+    }
+    mag -= str.length;
+    while (mag--) z += '0';
+    return str + z;
+}
+
+async function manageOrderBook(){
+    while(true){
+        currencies.forEach((pair)=>{
+            subForSnapshot(pair);
+        })
+        await new Promise((resolve) => setTimeout(resolve, 1800000)); // Delay 30 min between requesting orderbooks
+    }
+    
+}
+
+async function subForSnapshot(curr){
+    //delete previous orderbook for this trading pair
+    delete orderbooks[curr];
+    // url to get orderbook for each tradong pair
+    let url = `https://btc-alpha.com/api/web/finance/exchange?pair=${curr}&depth=true`;
+    const response = await fetch(url);
+
+    // convert response to JSON
+    const responseJSON = await response.json();
+    try{
+        // creating orderbook for certain trading pair in general orderbook
+        orderbooks[responseJSON['depth']['symbol']] = {};
+        // check whether bids array is not NULL
+        if(responseJSON['depth']['bids'].length > 0){
+            var order_answer = '$ ' + getUnixTime() + ' ' + responseJSON['depth']['symbol'] + ' B ';
+            var pq = '';
+            responseJSON['depth']['bids'].forEach((element)=>{
+                // add new element to orderbook
+                orderbooks[responseJSON['depth']['symbol']][parseFloat(element[0]).noExponents()] = parseFloat(element[1]).noExponents();
+                // add this pair to orderbook output
+                pq += parseFloat(element[1]).noExponents() + "@" + parseFloat(element[0]).noExponents() + '|';
+            });
+            pq = pq.slice(0, -1);
+            console.log(order_answer + pq + ' R');
+        }
+        // check whether asks array is not NULL
+        if(responseJSON['depth']['asks'].length > 0){
+            var order_answer = '$ ' + getUnixTime() + ' ' + responseJSON['depth']['symbol'] + ' S ';
+            var pq = ''
+            responseJSON['depth']['asks'].forEach((element)=>{
+                // add new element to orderbook
+                orderbooks[responseJSON['depth']['symbol']][parseFloat(element[0]).noExponents()] = parseFloat(element[1]).noExponents();
+                // add this pair to orderbook output
+                pq += parseFloat(element[1]).noExponents() + "@" + parseFloat(element[0]).noExponents() + '|';
+            });
+            pq = pq.slice(0, -1);
+            console.log(order_answer + pq + ' R');
+        }
+    }catch(e){
+        // if trading pair listed in metadata doesn`t have orderbook this catches an error
+    }
+    
+}
   
 
-async function ConnectDepth1(/*index*/){
+async function ConnectDepth1(){
     var wsDepth = new WebSocket(wsUrl);
     // call this func when first opening connection
     wsDepth.onopen = function(e) {
@@ -147,9 +264,8 @@ async function ConnectDepth1(/*index*/){
             wsDepth.send(JSON.stringify(
                 ["subscribe", `diff.${currencies[i]}`]
             )) 
-            sleep(500);
+            sleep(10);
         }
-              
     }
     // func to handle input messages
     wsDepth.onmessage = function(event) {
@@ -182,7 +298,7 @@ async function ConnectDepth1(/*index*/){
 
 }
 
-async function ConnectDepth2(/*index*/){
+async function ConnectDepth2(){
     var wsDepth = new WebSocket(wsUrl);
     // call this func when first opening connection
     wsDepth.onopen = function(e) {
@@ -192,7 +308,7 @@ async function ConnectDepth2(/*index*/){
             wsDepth.send(JSON.stringify(
                 ["subscribe", `diff.${currencies[i]}`]
             )) 
-            sleep(500);
+            sleep(10);
         }
               
     }
@@ -229,6 +345,7 @@ async function ConnectDepth2(/*index*/){
 
 
 Metadata();
+manageOrderBook();
 Connect();
 ConnectDepth1();
 ConnectDepth2();
@@ -237,4 +354,3 @@ ConnectDepth2();
 // as exchange has 38 spot pairs, out of which 37 are working, each websocket connection can handle up to 20 subs. 
 // so in order to sub for all trading pairs without creating a websocket connection for each trading pair 
 // I created 2 separate websocket connections which handle 1-19 and 20-38 index of pairs respectfully
-// There are no snapshots in this fetcher
