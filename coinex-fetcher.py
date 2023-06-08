@@ -5,14 +5,16 @@ import time
 import asyncio
 
 # get all available symbol pairs
-currency_url = 'https://coinsbit.io/api/v1/public/markets'
+currency_url = 'https://api.coinex.com/v1/market/info'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = "wss://ws.coinsbit.io/"
+WS_URL = 'wss://socket.coinex.com/'
+
 # check if the certain symbol pair is available
-for element in currencies["result"]:
-	list_currencies.append(element["name"])
+for key, value in currencies["data"].items():
+	element = value['name']
+	list_currencies.append(element)
 
 
 async def subscribe(ws, symbol):
@@ -36,8 +38,9 @@ async def subscribe(ws, symbol):
 		"method": "depth.subscribe",
 		"params": [
 			f"{symbol}",
-			100,
-			"0"
+			50,
+			"0",
+			True
 		],
 		"id": id2
 	}))
@@ -49,10 +52,10 @@ async def subscribe(ws, symbol):
 
 # get metadata about each pair of symbols
 async def metadata():
-	for element in currencies["result"]:
-		pair_data = '@MD ' + element['stock'] + '_' + element['money'] + ' spot ' + \
-					element['stock'] + ' ' + element['money'] + \
-					' ' + str(element['moneyPrec']) + ' 1 1 0 0'
+	for key, value in currencies["data"].items():
+		pair_data = '@MD ' + value['trading_name'] + value['pricing_name'] + ' spot ' + \
+					value['trading_name'] + ' ' + value['pricing_name'] + \
+					' ' + str(value['pricing_decimal']) + ' 1 1 0 0'
 
 		print(pair_data, flush=True)
 
@@ -67,14 +70,10 @@ def get_unix_time():
 # put the trade information in output format
 def get_trades(var):
 	trade_data = var
-	for elem in trade_data['params'][1]:
-		print("!", get_unix_time(), trade_data["params"][0],
-			  "S" if elem["type"][0] == "sell" else "B",
-			  elem["price"], elem['amount'], end="\n")
-
-	# print('!', get_unix_time(), trade_data['params'][0],
-	# 	  "S" if trade_data['params'][1][0]["type"] == "sell" else "B", trade_data['params'][1][0]['price'],
-	# 	  trade_data['params'][1][0]["amount"], flush=True)
+	for element in trade_data["params"][1]:
+		print('!', get_unix_time(), trade_data['params'][0],
+			  "S" if element["type"] == "sell" else "B", element['price'],
+			  element["amount"], flush=True)
 
 
 # put the orderbook and deltas information in output format
@@ -103,57 +102,57 @@ def get_order_books(var, depth_update):
 
 # process the situations when the server awaits "ping" request
 async def heartbeat(ws):
-	id3 = 2000
 	while True:
 		await ws.send(json.dumps({
 			"method": "server.ping",
 			"params": [],
-			"id": 2000
+			"id": 11
 		}))
 		await asyncio.sleep(5)
-		id3+=1
 
 
 async def socket(symbol):
-		# create connection with server via base ws url
-		async for ws in websockets.connect(WS_URL, ping_interval=None):
-			try:
+	# create connection with server via base ws url
+	async for ws in websockets.connect(WS_URL, ping_interval=None):
+		try:
 
-				# create task to keep connection alive
-				pong = asyncio.create_task(heartbeat(ws))
-				subscription = asyncio.create_task(subscribe(ws, symbol))
+			# create task to keep connection alive
+			pong = asyncio.create_task(heartbeat(ws))
+			subscription = asyncio.create_task(subscribe(ws, symbol))
+
+			async for data in ws:
+
+				try:
+					data = await ws.recv()
+
+					dataJSON = json.loads(data)
+
+					if "method" in dataJSON:
+
+						# if received data is about trades
+						if dataJSON['method'] == 'deals.update':
+							get_trades(dataJSON)
+
+						# if received data is about updates
+						if dataJSON['method'] == 'depth.update' and dataJSON['params'][0] == False:
+							get_order_books(dataJSON, depth_update=True)
+
+						# if received data is about orderbooks
+						if dataJSON['method'] == 'depth.update' and dataJSON['params'][0] == True:
+							get_order_books(dataJSON, depth_update=False)
+
+				except Exception as ex:
+					print(f"Exception {ex} occurred")
+
+				except:
+					pass
 
 
-				async for data in ws:
+		except Exception as conn_ex:
+			print(f"Connection exception {conn_ex} occurred")
 
-					try:
-						dataJSON = json.loads(data)
-
-						if "method" in dataJSON:
-							# if received data is about trades
-							if dataJSON['method'] == 'deals.update':
-								get_trades(dataJSON)
-
-							# if received data is about updates
-							if dataJSON['method'] == 'depth.update' and dataJSON['params'][0] == False:
-								get_order_books(dataJSON, depth_update=True)
-
-							# if received data is about orderbooks
-							if dataJSON['method'] == 'depth.update' and dataJSON['params'][0] == True:
-								get_order_books(dataJSON, depth_update=False)
-
-					except Exception as ex:
-						print(f"Exception {ex} occurred")
-
-					except:
-						pass
-
-
-			except Exception as conn_ex:
-				print(f"Connection exception {conn_ex} occurred")
-
-			except:
-				continue
+		except:
+			continue
 
 
 async def handler():
