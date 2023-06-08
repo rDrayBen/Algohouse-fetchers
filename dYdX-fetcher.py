@@ -58,13 +58,13 @@ def get_orderbook_updates(var):
 	order_data = var
 	if 'asks' in order_data["contents"] and len(order_data["contents"]["asks"]) != 0:
 		order_answer_S = '$ ' + str(get_unix_time()) + " " + order_data['id'] + ' S '
-		pq_S = "|".join(el[0] + "@" + el[1] for el in order_data["contents"]["asks"])
+		pq_S = "|".join(el[1] + "@" + el[0] for el in order_data["contents"]["asks"])
 		answer_S = order_answer_S + pq_S
 		print(answer_S)
 
 	if 'bids' in order_data["contents"] and len(order_data["contents"]["bids"]) != 0:
 		order_answer_B = '$ ' + str(get_unix_time()) + " " + order_data['id'] + ' B '
-		pq_B = "|".join(el[0] + "@" + el[1] for el in order_data["contents"]["bids"])
+		pq_B = "|".join(el[1] + "@" + el[0] for el in order_data["contents"]["bids"])
 		answer_B = order_answer_B + pq_B
 		print(answer_B)
 
