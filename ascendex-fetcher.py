@@ -77,7 +77,6 @@ async def handle_socket(symbol, ):
             async for message in ws:
                 try:
                     dataJSON = json.loads(message)
-                    print(dataJSON)
                     try:
                         if 'data' in dataJSON:
                             if dataJSON["m"] == "depth-snapshot":
