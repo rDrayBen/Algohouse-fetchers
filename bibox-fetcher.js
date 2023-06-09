@@ -21,7 +21,7 @@ for(let i = 0; i < myJson['result'].length; ++i){
 // print metadata about pairs
 async function Metadata(){
     myJson['result'].forEach((item, index)=>{
-        let pair_data = '@MD ' + item['pair'] + ' spot ' + item['pair'].split('_')[0] + ' ' + item['pair'].split('_')[1] + ' ' 
+        let pair_data = '@MD ' + item['pair'].toUpperCase() + ' spot ' + item['pair'].split('_')[0].toUpperCase() + ' ' + item['pair'].split('_')[1].toUpperCase() + ' ' 
         + item['decimal'] + ' 1 1 0 0';
         console.log(pair_data);
     })
@@ -40,7 +40,7 @@ function getUnixTime(){
 // func to print trades
 async function getTrades(message){
     var trade_output = '! ' + getUnixTime() + ' ' + 
-    message['d'][0] + ' ' + 
+    message['d'][0].toUpperCase() + ' ' + 
     (message['d'][3] === '2' ? 'S ' : 'B ') + message['d'][1] + ' ' + message['d'][2];
     console.log(trade_output);
 }
@@ -50,7 +50,7 @@ async function getTrades(message){
 async function getSnaphots(message){
     // check if bids array is not Null
     if(message['d']['bids']){
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'] + ' B '
+        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' B '
         var pq = '';
         for(let i = 0; i < message['d']['bids'].length; i++){
             pq += message['d']['bids'][i][1] + '@' + message['d']['bids'][i][0] + '|';
@@ -61,7 +61,7 @@ async function getSnaphots(message){
 
     // check if asks array is not Null
     if(message['d']['asks']){
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'] + ' S '
+        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' S '
         var pq = '';
         for(let i = 0; i < message['d']['asks'].length; i++){
             pq += message['d']['asks'][i][1] + '@' + message['d']['asks'][i][0] + '|';
@@ -75,7 +75,7 @@ async function getSnaphots(message){
 async function getDeltas(message){
     // check if bids array is not Null
     if(message['d']['add']){
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'] + ' B '
+        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' B '
         var pq = '';
         if(message['d']['add']['bids']){
             for(let i = 0; i < message['d']['add']['bids'].length; i++){
@@ -98,7 +98,7 @@ async function getDeltas(message){
 
     // check if asks array is not Null
     if(message['d']['add']){
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'] + ' S '
+        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' S '
         var pq = '';
         if(message['d']['add']['asks']){
             for(let i = 0; i < message['d']['add']['asks'].length; i++){
