@@ -17,6 +17,40 @@ for element in currencies["symbols"]:
 		list_currencies.append(element["symbol"])
 
 
+async def subscribe(ws, symbol):
+	id1 = 1
+	id2 = 1000
+
+	# create the subscription for trades
+	await ws.send(json.dumps({
+		"symbol": f"{symbol}",
+		"topic": "trade",
+		"event": "sub",
+		"params": {
+			"binary": False
+		}
+	}))
+
+
+	id1 += 1
+
+	await asyncio.sleep(0.01)
+
+	# create the subscription for full orderbooks and updates
+	# create the subscription for full orderbooks and updates
+	await ws.send(json.dumps({
+		"symbol": f"{symbol}",
+		"topic": "diffDepth",
+		"event": "sub",
+		"params": {
+			"binary": False
+		}
+	}))
+
+	id2 += 1
+
+	await asyncio.sleep(300)
+
 # get metadata about each pair of symbols
 async def metadata():
 	for element in currencies["symbols"]:
@@ -75,46 +109,18 @@ async def heartbeat(ws):
 		await asyncio.sleep(0.01)
 
 
-async def subscribe(ws):
-	for i in range(len(list_currencies)):
-		# create the subscription for trades
-		await ws.send(json.dumps({
-			"symbol": f"{list_currencies[i]}",
-			"topic": "trade",
-			"event": "sub",
-			"params": {
-				"binary": False
-			}
-		}))
 
-		# create the subscription for full orderbooks and updates
-		await ws.send(json.dumps({
-			"symbol": f"{list_currencies[i]}",
-			"topic": "diffDepth",
-			"event": "sub",
-			"params": {
-				"binary": False
-			}
-		}))
-
-
-async def main():
+async def socket(symbol):
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
+			# create task to subscribe trades and orderbooks
+			subscription = asyncio.create_task(subscribe(ws,symbol))
 
-			# create task to get metadata about each pair of symbols
-			meta_data = asyncio.create_task(metadata())
+			async for data in ws:
 
-			subscription = asyncio.create_task(subscribe(ws))
-
-			print(meta_data)
-
-			while True:
-
-				data = await ws.recv()
 				try:
 
 					dataJSON = json.loads(data)
@@ -142,14 +148,34 @@ async def main():
 						else:
 							pass
 
+
 				except Exception as ex:
 					print(f"Exception {ex} occurred")
+
+				except:
+					pass
 
 
 		except Exception as conn_ex:
 			print(f"Connection exception {conn_ex} occurred")
 
+		except:
+			continue
 
+
+async def handler():
+	meta_data = asyncio.create_task(metadata())
+	tasks = []
+	for symbol in list_currencies:
+		tasks.append(asyncio.create_task(socket(symbol)))
+		await asyncio.sleep(0.1)
+
+	await asyncio.wait(tasks)
+
+async def main():
+	while True:
+		await handler()
+		await asyncio.sleep(300)
 
 
 asyncio.run(main())
