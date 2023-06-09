@@ -39,4 +39,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 36. Bibox(javascript, websocket)
 37. LCX(javascript, websocket)
 38. BTC-Alpha(javascript, websocket + rest)
- 
+39. Pionex(javascript, websocket)
