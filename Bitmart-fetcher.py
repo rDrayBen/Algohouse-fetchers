@@ -124,7 +124,6 @@ async def handle_socket(symbol):
 async def handler():
     meta_task = asyncio.create_task(meta(response))
     divide_on_chunks(symbols, 100)
-    print(symbol_chunks)
     await asyncio.wait([asyncio.create_task(handle_socket(symbol)) for symbol in symbol_chunks[0:10]])
 
 def main():
