@@ -41,3 +41,5 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 38. BTC-Alpha(javascript, websocket + rest)
 39. Pionex(javascript, websocket)
 40. Bitbank(python, websocket)
+41. WEEX(javascript, websocket)
+42. P2B(javascrip, websocket)
