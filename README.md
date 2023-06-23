@@ -66,3 +66,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 63. Zt(python, websocket)
 64. bitopro(python, websocket)
 65. tapbit(python, websocket)
+66. exbito(python, websocket)
