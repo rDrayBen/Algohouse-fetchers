@@ -12,15 +12,14 @@ WS_URL = 'wss://wsapi.exbito.com/wsapiv2'
 
 for element in currencies:
 	list_currencies.append(element["name"])
-print(list_currencies)
 
 
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in currencies:
-		pair_data = '@MD ' + pair["baseCurrency"].upper() + '-' + pair["quoteCurrency"].upper() + ' spot ' + \
-					pair["baseCurrency"].upper() + ' ' + pair["quoteCurrency"].upper() + \
-					' ' + str(str(pair['tickSize'])[::-1].find('.')) + ' 1 1 0 0'
+		pair_data = '@MD ' + pair["baseCurrencySymbol"] + '_' + pair["quoteCurrencySymbol"] + ' spot ' + \
+					pair["baseCurrencySymbol"] + ' ' + pair["quoteCurrencySymbol"] + \
+					' ' + str(pair['moneyPrec']) + ' 1 1 0 0'
 
 		print(pair_data, flush=True)
 
@@ -105,8 +104,6 @@ async def main():
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
-
-				print(dataJSON)
 
 				if "event" in dataJSON and dataJSON["event"]!="subscribed" and dataJSON["event"]!="error":
 
