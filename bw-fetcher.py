@@ -45,19 +45,22 @@ def get_trades(var):
 
 def get_order_books(var, update):
 	order_data = var
+
 	if 'asks' in order_data and len(order_data["asks"]) != 0:
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data["channel"].split("_")[0].upper() + ' S '
-		pq = "|".join(str(el[1]) + "@" + str(el[0]) for el in order_data["asks"])
+		pq = "|".join(str(el[1]) + "@" + str("{:.8f}".format(el[0])) for el in order_data["asks"])
 		answer = order_answer + pq
 
 		print(answer + " R")
 
 	if 'bids' in order_data and len(order_data["bids"]) != 0:
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data["channel"].split("_")[0].upper() + ' B '
-		pq = "|".join(str(el[1]) + "@" + str(el[0]) for el in order_data["bids"])
+		pq = "|".join(str(el[1]) + "@" + str("{:.8f}".format(el[0])) for el in order_data["bids"])
 		answer = order_answer + pq
 
 		print(answer + " R")
+
+
 
 
 async def heartbeat(ws):
