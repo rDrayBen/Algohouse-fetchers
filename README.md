@@ -68,3 +68,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 65. tapbit(python, websocket)
 66. exbito(python, websocket)
 67. xeggex(python, websocket)
+68. C-Patex(javascript, websocket)
