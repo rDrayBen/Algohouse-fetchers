@@ -7,7 +7,19 @@ API_URL = "https://ascendex.com"
 API_SYMBOLS = "/api/pro/v1/cash/products"
 WSS_URL = "wss://ascendex.com/1/api/pro/v1/stream"
 TIMEOUT = 0.001
-PING_TIMEOUT = 5
+PING_TIMEOUT = 10
+response = requests.get(API_URL+API_SYMBOLS)
+symbols = [i['symbol'] for i in response.json()['data']]
+symbol_chunks = []
+
+def divide_on_chunks(symbols, chunk_size=100):
+    chunks_amount = round(len(symbols)/chunk_size)
+    last = 0
+    for i in range(chunks_amount):
+        symbol_chunks.append(symbols[i*chunk_size:chunk_size*(i+1)])
+        last = chunk_size*(i+1)
+    if len(symbols) - last > 0:
+        symbol_chunks.append(symbols[last: len(symbols)])
 
 async def subscribe(ws, data):
     k = 0
@@ -57,18 +69,14 @@ def print_orderbooks(data, isSnapshot):
             print("$", round(time.time() * 1000), data['symbol'], "S",
                   "|".join(str(i[1]) + "@" + str(i[0]) for i in data['data']['asks']), end="\n")
 
-async def main():
-    try:
-        response = requests.get(API_URL+API_SYMBOLS)
-        symbols = [i['symbol'] for i in response.json()['data']]
-        meta_task = asyncio.create_task(meta(response.json()['data']))
-        async for ws in websockets.connect(WSS_URL):
-            try:
-                sub_task = asyncio.create_task(subscribe(ws, symbols))
-                ping_task = asyncio.create_task(heartbeat(ws))
-                while True:
-                    data = await ws.recv()
-                    dataJSON = json.loads(data)
+async def handle_socket(symbol, ):
+    async for ws in websockets.connect(WSS_URL):
+        try:
+            sub_task = asyncio.create_task(subscribe(ws, symbol))
+            ping_task = asyncio.create_task(heartbeat(ws))
+            async for message in ws:
+                try:
+                    dataJSON = json.loads(message)
                     try:
                         if 'data' in dataJSON:
                             if dataJSON["m"] == "depth-snapshot":
@@ -79,8 +87,20 @@ async def main():
                                 print_trades(dataJSON)
                     except:
                         continue
-            except:
-                continue
-    except requests.exceptions.ConnectionError as conn_c:
-        print(f"WARNING: connection exception {conn_c} occurred")
-asyncio.run(main())
+                except KeyboardInterrupt:
+                    exit(0)
+                except:
+                    pass
+        except KeyboardInterrupt:
+            exit(0)
+        except:
+            continue
+
+async def handler():
+    divide_on_chunks(symbols, 100)
+    meta_task = asyncio.create_task(meta(response.json()['data']))
+    await asyncio.wait([asyncio.create_task(handle_socket(chunk)) for chunk in symbol_chunks])
+
+def main():
+    asyncio.get_event_loop().run_until_complete(handler())
+main()

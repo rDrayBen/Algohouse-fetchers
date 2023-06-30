@@ -42,16 +42,22 @@ async def heartbeat(ws):
         await asyncio.sleep(PING_TIMEOUT)
 
 async def meta(data):
+    used = []
     for i in data:
         response = requests.get(API_URL + API_SYMBOLS + i)
         for j in response.json()['result']:
             if(j['kind'] == "spot"):
+                if j['instrument_name'] not in used:
+                    used.append(j['instrument_name'])
+                else:
+                    continue
                 precission = str(j["min_trade_amount"])[::-1].find(".")
                 if precission == -1:
                     print("@MD", j['instrument_name'], "spot", j['base_currency'], j['counter_currency'], 0, 1, 1, 0, 0, end="\n")
                 else:
                     print("@MD", j['instrument_name'], "spot", j['base_currency'], j['counter_currency'], precission, 1, 1, 0, 0,
                           end="\n")
+
     print("@MDEND")
 
 def print_trades(data):
@@ -81,7 +87,6 @@ async def main():
     try:
         response_currencies = requests.get(API_URL + API_CURRENCIES)
         currencies = [i["currency"] for i in response_currencies.json()["result"]]
-
         symbols = []
         instrument_name = []
         resp_instrument = []
