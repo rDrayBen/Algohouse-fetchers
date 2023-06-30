@@ -15,6 +15,11 @@ response = requests.get(API_URL + API_SPOT_SYMBOLS_URL)
 symbols = [x['trade_pair_name'].replace('/', '') for x in response.json()['data']]
 trades = [WS_PUBLIC_SPOT_TRADE + i for i in symbols]
 orderbooks = [WS_PUBLIC_SPOT_DEPTH_ORDERBOOK + i for i in symbols]
+old_trades = {}
+for i in trades:
+    old_trades[i] = 0
+
+print(old_trades)
 
 async def meta(response):
     for i in response.json()['data']:
@@ -64,7 +69,7 @@ async def subscribe(ws, symbols_):
                                           }))
         await asyncio.sleep(TIMEOUT)
 
-
+print(len(symbols))
 async def main():
     meta_task = asyncio.create_task(meta(response))
     async for ws in websockets.connect(WS_URL):
@@ -76,7 +81,10 @@ async def main():
                     data = await ws.recv()
                     data_json = json.loads(data)
                     if data_json["topic"] in trades:
-                        print_trades(data_json)
+                        if old_trades[data_json["topic"]] < 2:
+                            old_trades[data_json["topic"]] += 1
+                        else:
+                            print_trades(data_json)
                     if data_json["topic"] in orderbooks and data_json["action"] == "update":
                         print_orderbooks(data_json, 0)
                     if data_json["topic"] in orderbooks and data_json["action"] == "insert":
