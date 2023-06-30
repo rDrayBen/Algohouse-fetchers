@@ -55,7 +55,7 @@ async def subscribe(ws, symbol):
 async def metadata():
 	for element in currencies["symbols"]:
 		if element["status"] == "TRADING":
-			pair_data = '@MD ' + element['baseAsset'] + '-' + element['quoteAsset'] + ' spot ' + \
+			pair_data = '@MD ' + element['baseAsset'] + element['quoteAsset'] + ' spot ' + \
 						element['baseAsset'] + ' ' + element['quoteAsset'] + \
 						' ' + str(str(element['quotePrecision'])[::-1].find('.')) + ' 1 1 0 0'
 			print(pair_data, flush=True)

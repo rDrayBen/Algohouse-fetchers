@@ -20,7 +20,7 @@ snapshots = [WS_PUBLIC_SPOT_DEPTH_WHOLE + i for i in symbols]
 
 async def meta(response):
     for i in response.json()['data']['pairs']:
-        print("@MD", i['name'], "spot", i['base_asset'], i['quote_asset'], i['amount_digits'],
+        print("@MD", i['name'].upper(), "spot", i['base_asset'].upper(), i['quote_asset'].upper(), i['amount_digits'],
               1, 1, 0, 0, end="\n")
     print("@MDEND")
 

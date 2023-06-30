@@ -64,3 +64,8 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 61. Jubi(python, websocket)
 62. Narkasa(python, websocket)
 63. Zt(python, websocket)
+64. bitopro(python, websocket)
+65. tapbit(python, websocket)
+66. exbito(python, websocket)
+67. xeggex(python, websocket)
+68. C-Patex(javascript, websocket)
