@@ -109,8 +109,6 @@ async def main():
 
 				dataJSON = json.loads(data)
 
-				print(dataJSON)
-
 				if "event" not in dataJSON:
 
 					try:
