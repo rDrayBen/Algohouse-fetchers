@@ -70,3 +70,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 67. xeggex(python, websocket)
 68. C-Patex(javascript, websocket)
 69. Probit-Global(javascript, websocket)
+70. Nominex(javascript, websocket)
