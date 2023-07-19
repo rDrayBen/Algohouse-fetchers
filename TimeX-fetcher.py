@@ -67,7 +67,7 @@ async def main():
         for i in response.json():
             snapshots_dict[i['symbol']] = 0
             symbol_snapshot_dict[i['symbol']] = {"symbol":i['symbol'], "bid":[], "ask":[]}
-        async for ws in websockets.connect(WSS_URL, ping_interval=4):
+        async for ws in websockets.connect(WSS_URL, ping_interval=None):
             try:
                 sub_task = asyncio.create_task(subscribe(ws, response.json()))
                 while True:
