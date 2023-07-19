@@ -96,7 +96,6 @@ async def main():
                     except:
                         continue
             except:
-                print("Reconnect")
                 continue
     except requests.exceptions.ConnectionError as conn_c:
         print(f"WARNING: connection exception {conn_c} occurred")
