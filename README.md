@@ -72,3 +72,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 69. Probit-Global(javascript, websocket)
 70. Nominex(javascript, websocket)
 71. Coinstore(javascript, websocket)
+72. TimeX(python, websocket)
