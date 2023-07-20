@@ -19,8 +19,6 @@ old_trades = {}
 for i in trades:
     old_trades[i] = 0
 
-print(old_trades)
-
 async def meta(response):
     for i in response.json()['data']:
         print("@MD", i['trade_pair_name'].replace('/', ''), "spot", i['base_asset'], i['quote_asset'], i['price_precision'],
