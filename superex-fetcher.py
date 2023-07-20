@@ -4,7 +4,6 @@ import time
 import websockets
 import base64
 import gzip
-from decimal import Decimal
 
 WS_URL = 'wss://api.superexchang.com/socket/ws'
 WS_PUBLIC_SPOT_SYMBOLS = 'spot/symbol:spot'
@@ -20,7 +19,9 @@ old_trades = {}
 def format_decimal(value):
     try:
         if 'e' in str(value) or 'E' in str(value):
-            return Decimal(value)
+            parts = str(value).lower().split('e')
+            precision = len(parts[0]) + abs(int(parts[1])) - 2
+            return format(value, f'.{precision}f')
         else:
             return value
     except:
@@ -61,7 +62,7 @@ def print_trades(data):
         else:
             bs = 'S'
         print('!', round(time.time() * 1000),
-              data['symbol'].upper(), bs, str(Decimal(data['data'][0]['volume'])), str(format_decimal(data['data'][0]['price'])))
+              data['symbol'].upper(), bs, str(format_decimal(data['data'][0]['volume'])), str(format_decimal(data['data'][0]['price'])))
     except:
         pass
 
