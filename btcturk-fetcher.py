@@ -80,7 +80,6 @@ async def main():
 			meta_data = asyncio.create_task(metadata())
 
 			for i in range(len(list_currencies)):
-				# create the subscription for trades
 
 				# create the subscription for full orderbooks and updates
 				await ws.send(json.dumps([151,
@@ -90,6 +89,7 @@ async def main():
 					  "join":True}
 					 ]))
 
+				# create the subscription for trades
 				await ws.send(json.dumps(
 					[151,
 					 {"type":151,
