@@ -73,3 +73,6 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 70. Nominex(javascript, websocket)
 71. Coinstore(javascript, websocket)
 72. TimeX(python, websocket)
+73. PointPay(javascript, websocket)
+74. Bitso(javascript, websocket)
+75. Coincheck(javascript, websocket)
