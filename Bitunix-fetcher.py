@@ -72,33 +72,6 @@ def print_snapshot(data, symbol):
             print('$', round(time.time() * 1000), symbol, 'B',
                   '|'.join(i[1] + "@" + i[0] for i in data['data']['bids']),
                   end='\n')
-# async def main():
-#     try:
-#
-#         meta_task = asyncio.create_task(meta(response))
-#         async for ws in websockets.connect(WSS_URL):
-#             try:
-#
-#                 ping_task = asyncio.create_task(heartbeat(ws))
-#                 while True:
-#                     try:
-#                         data = await ws.recv()
-#                         dataJSON = json.loads(data)
-#                         if dataJSON['channel'] in trade_channel:
-#                             if historical_trades_dict[dataJSON['channel']][0] == 0:
-#                                 historical_trades_dict[dataJSON['channel']][0] += 1
-#                                 continue
-#                             else:
-#                                 print_trades(dataJSON, historical_trades_dict[dataJSON['channel']][1])
-#                         if dataJSON['channel'] in depth_channel:
-#                             print_snapshot(dataJSON, snapshot_dict[dataJSON['channel']])
-#                     except:
-#                         continue
-#             except:
-#                 continue
-#     except requests.exceptions.ConnectionError as conn_c:
-#         print(f"WARNING: connection exception {conn_c} occurred")
-# asyncio.run(main())
 
 async def handle_socket(symbol, ):
     async for ws in websockets.connect(WSS_URL, ping_interval=None):
