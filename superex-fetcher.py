@@ -62,7 +62,7 @@ def print_trades(data):
         else:
             bs = 'S'
         print('!', round(time.time() * 1000),
-              data['symbol'].upper(), bs, str(format_decimal(data['data'][0]['volume'])), str(format_decimal(data['data'][0]['price'])))
+              data['symbol'].upper(), bs, str(format_decimal(data['data'][0]['price'])), str(format_decimal(data['data'][0]['volume'])))
     except:
         pass
 
