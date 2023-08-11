@@ -77,3 +77,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 74. Bitso(javascript, websocket)
 75. Coincheck(javascript, websocket)
 76. Bydfi(javascript, websocket)
+77. Vitex(javascript, websocket)
