@@ -84,3 +84,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 81. One Trading(python, websocket)
 82. BitUnix(python, websocket)
 83. Topcredit International(python, websocket)
+84. BIKA(python, websocket)
