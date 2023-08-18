@@ -101,3 +101,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 98. superEx(python, websocket)
 99. TradeOgre(javascript, websocket)
 100. idex(python, websocket)
+101. BitMake(python, websocket)
