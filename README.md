@@ -76,7 +76,7 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 73. PointPay(javascript, websocket)
 74. Bitso(javascript, websocket)
 75. Coincheck(javascript, websocket)
-76. Bydfi(javascript, websocket)
+76. Bydfi(javascript, websocket + rest)
 77. Vitex(javascript, websocket)
 78. Pexpay(python, websocket)
 79. Globe(python, websocket)
@@ -99,3 +99,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 96. opnx(python, websocket)
 97. SatangPro(python, websocket)
 98. superEx(python, websocket)
+99. TradeOgre(javascript, websocket)
