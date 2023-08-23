@@ -13,8 +13,6 @@ WS_URL = 'wss://api.narkasa.com/v3'
 for element in currencies["markets"]:
 	list_currencies.append(element["symbol"])
 
-print(list_currencies)
-
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in currencies["markets"]:
