@@ -103,3 +103,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 100. idex(python, websocket)
 101. BitMake(python, websocket)
 102. Latoken(python, websocket)
+103. exmarkets(python, websocket)
