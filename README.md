@@ -104,3 +104,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 101. BitMake(python, websocket)
 102. Latoken(python, websocket)
 103. exmarkets(python, websocket)
+104. CoinFalcon(javascript, websocket)
