@@ -107,3 +107,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 104. exmarkets(python, websocket)
 105. CoinFalcon(javascript, websocket)
 106. Nami(python, websocket)
+107. nonkyc.io(python, websocket)
