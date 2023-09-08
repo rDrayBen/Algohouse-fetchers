@@ -86,23 +86,6 @@ async def main():
 
 				await asyncio.sleep(0.3)
 
-				await ws.send(json.dumps({
-					"method":"GET_PROPERTY",
-					"params":["combined"],
-					"id":2
-				}))
-
-				await asyncio.sleep(0.3)
-
-				await ws.send(json.dumps({
-					"method":"SUBSCRIBE",
-					"params":[
-						f"{list_currencies[i]}@kline_1d",f"{list_currencies[i]}@depth"
-					],
-					"id":3
-				}))
-
-				await asyncio.sleep(0.3)
 
 			while True:
 				data = await ws.recv()
