@@ -110,3 +110,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 107. nonkyc.io(python, websocket)
 108. Blofin(javascript, websocket)
 109. Coinzix(python, websocket)
+110. OpenOcean(javascript, websocket)
