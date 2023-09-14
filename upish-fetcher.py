@@ -84,7 +84,7 @@ async def main():
 						"id":1
 				}))
 
-				await asyncio.sleep(0.3)
+				await asyncio.sleep(0.5)
 
 
 			while True:
