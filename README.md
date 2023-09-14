@@ -112,3 +112,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 109. Coinzix(python, websocket)
 110. OpenOcean(javascript, websocket)
 111. Demex(python, websocket)
+112. Purcow(python, websocket)
