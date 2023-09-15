@@ -113,3 +113,6 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 110. OpenOcean(javascript, websocket)
 111. Demex(python, websocket)
 112. Purcow(python, websocket)
+113. icrypex(python, websocket)
+114. upish(python, websocket)
+115. abcc(python, websocket)
