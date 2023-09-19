@@ -116,3 +116,5 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 113. icrypex(python, websocket)
 114. upish(python, websocket)
 115. abcc(python, websocket)
+116. BitVenus(javascript, websocket)
+     
