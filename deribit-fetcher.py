@@ -42,15 +42,22 @@ async def heartbeat(ws):
         await asyncio.sleep(PING_TIMEOUT)
 
 async def meta(data):
+    used = []
     for i in data:
         response = requests.get(API_URL + API_SYMBOLS + i)
         for j in response.json()['result']:
-            precission = str(j["min_trade_amount"])[::-1].find(".")
-            if precission == -1:
-                print("@MD", j['instrument_name'], "spot", j['base_currency'], j['counter_currency'], 0, 1, 1, 0, 0, end="\n")
-            else:
-                print("@MD", j['instrument_name'], "spot", j['base_currency'], j['counter_currency'], precission, 1, 1, 0, 0,
-                      end="\n")
+            if(j['kind'] == "spot"):
+                if j['instrument_name'] not in used:
+                    used.append(j['instrument_name'])
+                else:
+                    continue
+                precission = str(j["min_trade_amount"])[::-1].find(".")
+                if precission == -1:
+                    print("@MD", j['instrument_name'], "spot", j['base_currency'], j['counter_currency'], 0, 1, 1, 0, 0, end="\n")
+                else:
+                    print("@MD", j['instrument_name'], "spot", j['base_currency'], j['counter_currency'], precission, 1, 1, 0, 0,
+                          end="\n")
+
     print("@MDEND")
 
 def print_trades(data):
@@ -88,6 +95,7 @@ async def main():
             symbol_ = [j['price_index'] for j in response_instruments.json()["result"] if j['is_active'] == True]
             instrument_name += [k['instrument_name'] for k in response_instruments.json()['result'] if k['is_active'] == True]
             symbols += symbol_
+
         trade_channel = ['trades.' + k + '.100ms' for k in instrument_name]
         orderbook_channel = ['book.' + k + '.100ms' for k in instrument_name]
         meta_task = asyncio.create_task(meta(currencies))

@@ -3,6 +3,7 @@ import websockets
 import time
 import asyncio
 import requests
+from datetime import datetime
 
 API_URL = "https://www.zbg.com"
 API_SYMBOLS = "/exchange/api/v1/common/symbols"
@@ -60,6 +61,16 @@ def print_orderbook(data, isSnapshot):
 async def main():
     try:
         response = requests.get(API_URL+API_SYMBOLS)
+        if response.status_code >= 500:
+            time_error = datetime.now()
+            print(" WARNING: CONNECTION CLOSED\n",
+                  "HTTP status code:", response.status_code, "\n",
+                  "DATETIME:", time_error,"\n",
+                  "EXCHANGE:", "Zbg\n",
+                  "API URL:", API_URL, "\n",
+                  "ENDPOINT:", API_SYMBOLS, "\n"
+                  " METHOD:", "GET")
+            exit(1)
         meta_task = asyncio.create_task(meta(response.json()))
         async for ws in websockets.connect(WS_URL):
             try:

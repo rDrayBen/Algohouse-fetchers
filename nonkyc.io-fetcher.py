@@ -4,22 +4,23 @@ import websockets
 import time
 import asyncio
 
-currency_url = 'https://api.aex.zone/v3/allpair.php'
+currency_url = 'https://nonkyc.io/api/v2/markets'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://aex2.yxds.net.cn/wsv3'
+WS_URL = 'wss://ws.nonkyc.io'
 
+for element in currencies:
+	if element["type"] == "spot":
+		list_currencies.append(element["base"] + "/" + element["quote"])
 
-for element in currencies["data"]:
-	list_currencies.append(element["coin"]+"_"+element["market"])
 
 # get metadata about each pair of symbols
 async def metadata():
-	for pair in currencies["data"]:
-		pair_data = '@MD ' + pair["coin"].upper() + '_' + pair["market"].upper() + ' spot ' + \
-					pair["coin"].upper() + ' ' + pair["market"].upper() + \
-					' ' + str(pair["limits"]['PricePrecision']) + ' 1 1 0 0'
+	for pair in currencies:
+		pair_data = '@MD ' + pair["base"] + '/' + pair["quote"] + ' spot ' + \
+					pair["base"] + ' ' + pair["quote"] + \
+					' -1' + ' 1 1 0 0'
 
 		print(pair_data, flush=True)
 
@@ -32,18 +33,18 @@ def get_unix_time():
 
 def get_trades(var):
 	trade_data = var
-	if 'trade' in trade_data:
-		for elem in trade_data["trade"]:
-			print('!', get_unix_time(), trade_data['symbol'].upper(),
-				  "B" if elem[3] == "buy" else "S", elem[2],
-				  elem[1], flush=True)
+	if 'data' in trade_data["params"]:
+		for elem in trade_data["params"]["data"]:
+			print('!', get_unix_time(), trade_data["params"]['symbol'],
+				  "B" if elem["side"] == "buy" else "S", elem['price'],
+				  elem["quantity"], flush=True)
 
 
 def get_order_books(var, update):
 	order_data = var
-	if 'asks' in order_data['depth'] and len(order_data["depth"]["asks"]) != 0:
-		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'].upper() + ' S '
-		pq = "|".join(el[0] + "@" + el[1] for el in order_data["depth"]["asks"])
+	if 'asks' in order_data['params'] and len(order_data["params"]["asks"]) != 0:
+		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['params']['symbol'] + ' S '
+		pq = "|".join(str(el["quantity"]) + "@" + el["price"] for el in order_data["params"]["asks"])
 		answer = order_answer + pq
 		# checking if the input data is full orderbook or just update
 		if (update == True):
@@ -51,9 +52,9 @@ def get_order_books(var, update):
 		else:
 			print(answer + " R")
 
-	if 'bids' in order_data['depth'] and len(order_data["depth"]["bids"]) != 0:
-		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'].upper() + ' B '
-		pq = "|".join(el[0] + "@" + el[1] for el in order_data["depth"]["bids"])
+	if 'bids' in order_data['params'] and len(order_data["params"]["bids"]) != 0:
+		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['params']['symbol'] + ' B '
+		pq = "|".join(str(el["quantity"]) + "@" + el["price"] for el in order_data["params"]["bids"])
 		answer = order_answer + pq
 		# checking if the input data is full orderbook or just update
 		if (update == True):
@@ -80,20 +81,23 @@ async def main():
 			# create task to get metadata about each pair of symbols
 			meta_data = asyncio.create_task(metadata())
 
-
 			for i in range(len(list_currencies)):
 				# create the subscription for trades
 				await ws.send(json.dumps({
-					"cmd": 1,
-					"action": "sub",
-					"symbol": f"{list_currencies[i]}"
+					"method": "subscribeOrderbook",
+					"params": {
+						"symbol": f"{list_currencies[i]}",
+						"limit": 100
+					},
+					"id": 123
 				}))
 
-				# create the subscription for full orderbooks
+				# create the subscription for full orderbooks and updates
 				await ws.send(json.dumps({
-					"cmd": 3,
-					"action": "sub",
-					"symbol": f"{list_currencies[i]}"
+					"method": "subscribeTrades",
+					"params": {
+						"symbol": f"{list_currencies[i]}"
+					}
 				}))
 
 			while True:
@@ -101,17 +105,20 @@ async def main():
 
 				dataJSON = json.loads(data)
 
-				if "trade" in dataJSON or "depth" in dataJSON:
+				if "method" in dataJSON:
 
 					try:
 
 						# if received data is about trades
-						if dataJSON["cmd"] == 1:
+						if dataJSON['method'] == 'updateTrades':
 							get_trades(dataJSON)
 
+						# if received data is about updates
+						if dataJSON['method'] == 'updateOrderbook':
+							get_order_books(dataJSON, update=True)
 
 						# if received data is about orderbooks
-						if dataJSON["cmd"] == 3 :
+						if dataJSON['method'] == 'snapshotOrderbook':
 							get_order_books(dataJSON, update=False)
 
 						else:
