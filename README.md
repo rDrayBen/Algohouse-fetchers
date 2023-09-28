@@ -119,3 +119,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 116. BitVenus(javascript, websocket)
 117. Bitexlive(python, websocket)
 118. CoinCatch(javascript, websocket)
+119. Ace(python, websocket)
