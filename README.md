@@ -122,3 +122,5 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 119. Ace(python, websocket)
 120. INXONE(python, websocket)
 121. OrangeX(javascipt, websocket+rest)
+122. bybit(python, websocket)
+123. zondacrypto(python, websocket)
