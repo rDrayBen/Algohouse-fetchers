@@ -12,7 +12,6 @@ WS_URL = 'wss://api.zondacrypto.exchange/websocket/'
 
 for key, value in currencies["items"].items():
 	list_currencies.append(key.lower())
-print(list_currencies)
 
 
 # get metadata about each pair of symbols
