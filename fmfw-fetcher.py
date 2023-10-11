@@ -17,7 +17,7 @@ for element in currencies:
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in currencies:
-		pair_data = '@MD ' + pair["baseCurrency"].upper() + '-' + pair["quoteCurrency"].upper() + ' spot ' + \
+		pair_data = '@MD ' + pair["baseCurrency"].upper() + pair["quoteCurrency"].upper() + ' spot ' + \
 					pair["baseCurrency"].upper() + ' ' + pair["quoteCurrency"].upper() + \
 					' ' + str(str(pair['tickSize'])[::-1].find('.')) + ' 1 1 0 0'
 
