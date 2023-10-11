@@ -35,7 +35,7 @@ def print_trades(data):
     else:
         bs = "S"
     try:
-        print('!', round(time.time() * 1000), data["data"]["s"].upper(), bs, data["data"]["q"], data["data"]["p"])
+        print('!', round(time.time() * 1000), data["data"]["s"].upper(), bs, data["data"]["p"], data["data"]["q"])
     except:
         pass
 

@@ -48,7 +48,7 @@ async function getTrades(message){
 
 
 // func to print orderbooks and deltas
-async function getOrders(message, update){
+async function getOrders(message){
     // check if bids array is not Null
     if(message[3].length > 0){
         var order_answer = '$ ' + getUnixTime() + ' ' + message[2] + ' B '
@@ -57,26 +57,29 @@ async function getOrders(message, update){
             // if pair [price, quantity] is like this ["27715.26000000", "-0.17600000"]
             if(element[1][0] === '-'){
                 // check whether is incoming price value is in orderbook
-                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
-                    if(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] - parseFloat(element[1].slice(1)) >= 0){
+                if(element[0] in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][element[0]]) > 0){
+                    if(orderbooks[message[2]][element[0]] - parseFloat(element[1].slice(1)) >= 0){
                         // change quantity in orderbook
-                        orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) - parseFloat(element[1].slice(1));
+                        orderbooks[message[2]][element[0]] = parseFloat(orderbooks[message[2]][element[0]]) - parseFloat(element[1].slice(1));
                         // add pair to delta output
-                        pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                        pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
                         // check if now quantity is 0, and delete pair [price] = quantity from orderbook
-                        if(parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) === 0){
-                            delete orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))];
+                        if(parseFloat(orderbooks[message[2]][element[0]]) === 0){
+                            delete orderbooks[message[2]][element[0]];
                         }
                     }
                 }
                 // if pair [price, quantity] is like this ["27879.20000000", "0.13600000"]
             }else{
                 // check whether is incoming price value is in orderbook
-                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
+                if(element[0] in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][element[0]]) > 0){
                     // change quantity in orderbook
-                    orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) + parseFloat(element[1]);
+                    orderbooks[message[2]][element[0]] = parseFloat(orderbooks[message[2]][element[0]]) + parseFloat(element[1]);
                     // add pair to delta output
-                    pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                    pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
+                }else{
+                    orderbooks[message[2]][element[0]] = parseFloat(element[1]).noExponents();
+                    pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
                 }
             }
             
@@ -95,26 +98,29 @@ async function getOrders(message, update){
             // if pair [price, quantity] is like this ["27715.26000000", "-0.17600000"]
             if(element[1][0] === '-'){
                 // check whether is incoming price value is in orderbook
-                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
-                    if(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] - parseFloat(element[1].slice(1)) >= 0){
+                if(element[0] in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][element[0]]) > 0){
+                    if(orderbooks[message[2]][element[0]] - parseFloat(element[1].slice(1)) >= 0){
                         // change quantity in orderbook
-                        orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) - parseFloat(element[1].slice(1));
+                        orderbooks[message[2]][element[0]] = parseFloat(orderbooks[message[2]][element[0]]) - parseFloat(element[1].slice(1));
                         // add pair to delta output
-                        pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                        pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
                         // check if now quantity is 0, and delete pair [price] = quantity from orderbook
-                        if(parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) === 0){
-                            delete orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))];
+                        if(parseFloat(orderbooks[message[2]][element[0]]) === 0){
+                            delete orderbooks[message[2]][element[0]];
                         }
                     }
                 }
             // if pair [price, quantity] is like this ["27879.20000000", "0.13600000"]
             }else{
                 // check whether is incoming price value is in orderbook
-                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
+                if(element[0] in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][element[0]]) > 0){
                     // change quantity in orderbook
-                    orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) + parseFloat(element[1]);
+                    orderbooks[message[2]][element[0]] = parseFloat(orderbooks[message[2]][element[0]]) + parseFloat(element[1]);
                     // add pair to delta output
-                    pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                    pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
+                }else{
+                    orderbooks[message[2]][element[0]] = parseFloat(element[1]).noExponents();
+                    pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
                 }
             }
             
@@ -226,10 +232,22 @@ async function subForSnapshot(curr){
             var order_answer = '$ ' + getUnixTime() + ' ' + responseJSON['depth']['symbol'] + ' B ';
             var pq = '';
             responseJSON['depth']['bids'].forEach((element)=>{
+                var decimals_len;
+                var last_dec = '';
+                var dot = '';
+                if(String(parseFloat(element[0]).noExponents()).includes('.')){
+                    decimals_len = 8 - String(parseFloat(element[0]).noExponents()).split('.')[1].length;
+                }else{
+                    decimals_len = 8;
+                    dot = '.';
+                }
+                for(let i = 0; i < decimals_len; i++){
+                    last_dec += '0';
+                }
                 // add new element to orderbook
-                orderbooks[responseJSON['depth']['symbol']][parseFloat(element[0]).noExponents()] = parseFloat(element[1]).noExponents();
+                orderbooks[responseJSON['depth']['symbol']][String(parseFloat(element[0]).noExponents()) + dot + last_dec] = parseFloat(element[1]).noExponents();
                 // add this pair to orderbook output
-                pq += parseFloat(element[1]).noExponents() + "@" + parseFloat(element[0]).noExponents() + '|';
+                pq += parseFloat(element[1]).noExponents() + "@" + String(parseFloat(element[0]).noExponents()) + dot + last_dec + '|';
             });
             pq = pq.slice(0, -1);
             console.log(order_answer + pq + ' R');
@@ -239,10 +257,22 @@ async function subForSnapshot(curr){
             var order_answer = '$ ' + getUnixTime() + ' ' + responseJSON['depth']['symbol'] + ' S ';
             var pq = ''
             responseJSON['depth']['asks'].forEach((element)=>{
+                var decimals_len;
+                var last_dec = '';
+                var dot = '';
+                if(String(parseFloat(element[0]).noExponents()).includes('.')){
+                    decimals_len = 8 - String(parseFloat(element[0]).noExponents()).split('.')[1].length;
+                }else{
+                    decimals_len = 8;
+                    dot = '.';
+                }
+                for(let i = 0; i < decimals_len; i++){
+                    last_dec += '0';
+                }
                 // add new element to orderbook
-                orderbooks[responseJSON['depth']['symbol']][parseFloat(element[0]).noExponents()] = parseFloat(element[1]).noExponents();
+                orderbooks[responseJSON['depth']['symbol']][String(parseFloat(element[0]).noExponents()) + dot + last_dec] = parseFloat(element[1]).noExponents();
                 // add this pair to orderbook output
-                pq += parseFloat(element[1]).noExponents() + "@" + parseFloat(element[0]).noExponents() + '|';
+                pq += parseFloat(element[1]).noExponents() + "@" + String(parseFloat(element[0]).noExponents()) + dot + last_dec + '|';
             });
             pq = pq.slice(0, -1);
             console.log(order_answer + pq + ' R');
@@ -263,16 +293,16 @@ async function ConnectDepth1(){
         for(let i = 0; i < 20; i++){ 
             wsDepth.send(JSON.stringify(
                 ["subscribe", `diff.${currencies[i]}`]
-            )) 
+            ));
             sleep(10);
-        }
+        } 
     }
     // func to handle input messages
     wsDepth.onmessage = function(event) {
         // parse input data to JSON format
         var dataJSON = JSON.parse(event.data);
         if(dataJSON[0] === 'd'){
-            getOrders(dataJSON, true);
+            getOrders(dataJSON);
         }else{
             console.log(dataJSON);
         }
@@ -317,7 +347,7 @@ async function ConnectDepth2(){
         // parse input data to JSON format
         var dataJSON = JSON.parse(event.data);
         if(dataJSON[0] === 'd'){
-            getOrders(dataJSON, true);
+            getOrders(dataJSON);
         }else{
             console.log(dataJSON);
         }
