@@ -8,7 +8,7 @@ currency_url = 'https://xeggex.com/api/v2/markets'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://ws.xeggex.com'
+WS_URL = 'wss://api.xeggex.com'
 
 for element in currencies:
 	if element["type"] == "spot":
