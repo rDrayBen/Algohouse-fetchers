@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.bw6.com/data/v1/markets'
 answer = requests.get(currency_url)
@@ -60,9 +61,6 @@ def get_order_books(var, update):
 
 		print(answer + " R")
 
-
-
-
 async def heartbeat(ws):
 	while True:
 		await ws.send(json.dumps({
@@ -90,12 +88,12 @@ async def main():
 					"event": "addChannel",
 					"channel": f"{list_currencies[i]}_trades"
 				}))
-
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"event":"addChannel",
-					"channel":f"{list_currencies[i]}_depth"
-				}))
+				if (os.getenv("SKIP_ORDERBOOKS") == None):
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"event":"addChannel",
+						"channel":f"{list_currencies[i]}_depth"
+					}))
 
 			while True:
 				data = await ws.recv()
