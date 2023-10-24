@@ -9,6 +9,7 @@ currency_url = 'https://api.exmo.com/v1.1/pair_settings'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
+check_activity = {}
 # base web socket url
 WS_URL = 'wss://ws-api.exmo.com:443/v1/public'
 
@@ -18,6 +19,7 @@ list_currencies = list(currencies.keys())
 
 async def metadata():
     for pair in list_currencies:
+        check_activity[pair] = False
         pair_data = '@MD ' + pair.split('_')[0] + '-' + pair.split('_')[1] + ' spot ' + \
                     pair.split('_')[0] + ' ' + pair.split('_')[1] + ' ' + str(currencies[pair]['price_precision']) \
                     + ' 1 1 0 0'
@@ -32,6 +34,7 @@ def get_unix_time():
 
 # function to format the trades output
 def get_trades(message):
+    check_activity[message['topic'].split(':')[1]] = True
     coin_name = message['topic'].split(':')[1].split('_')[0] + '-' + message['topic'].split(':')[1].split('_')[1]
     if 'data' in message:
         for elem in message['data']:
@@ -42,6 +45,7 @@ def get_trades(message):
 
 # function to format order books and deltas(order book updates) format
 def get_order_books_and_deltas(message, update):
+    check_activity[message['topic'].split(':')[1]] = True
     coin_name = message['topic'].split(':')[1].split('_')[0] + '-' + message['topic'].split(':')[1].split('_')[1]
     # check if bids array is not Null
     if 'data' in message and 'bid' in message['data'] and message['data']['bid']:
@@ -71,34 +75,38 @@ def get_order_books_and_deltas(message, update):
 async def heartbeat(ws):
     while True:
         await ws.send(json.dumps({
-                    "event": "ping"
-                }))
+            "event": "ping"
+        }))
         await asyncio.sleep(5)
 
 
 async def subscribe(ws):
-    # subscribe for listed topics
-    for symbol in list_currencies:
-        # subscribe to all trades
-        await ws.send(json.dumps({
-            "method": "subscribe",
-            "topics": [
-                f"spot/trades:{symbol}",
-                f"spot/order_book_snapshots:{symbol}",
-                f"spot/order_book_updates:{symbol}"
-            ]
-        }))
+    while True:
+        # subscribe for listed topics
+        for key, value in check_activity.items():
+            # subscribe to all trades
+            if not value:
+                await ws.send(json.dumps({
+                    "method": "subscribe",
+                    "topics": [
+                        f"spot/trades:{key}",
+                        f"spot/order_book_updates:{key}"
+                    ]
+                }))
+        for symbol in list(check_activity):
+            check_activity[symbol] = False
+        await asyncio.sleep(3000)
 
 
 async def main():
     # create connection with server via base ws url
     async for ws in websockets.connect(WS_URL, ping_interval=None):
         try:
+            # print metadata about each pair symbols
+            meta_data = asyncio.create_task(metadata())
             sub_task = asyncio.create_task(subscribe(ws))
             # create task to keep connection alive
             pong = asyncio.create_task(heartbeat(ws))
-            # print metadata about each pair symbols
-            meta_data = asyncio.create_task(metadata())
             while True:
                 # receiving data from server
                 data = await ws.recv()
@@ -110,11 +118,11 @@ async def main():
                         if 'trades' in dataJSON['topic']:
                             get_trades(dataJSON)
                         # check if received data is about updates on order book
-                        elif 'order_book_snapshots' in dataJSON['topic']:
-                            get_order_books_and_deltas(dataJSON, update=True)
-                        # check if received data is about order books
-                        elif 'order_book_updates' in dataJSON['topic']:
+                        elif 'order_book_updates' in dataJSON['topic'] and dataJSON['event'] == 'snapshot':
                             get_order_books_and_deltas(dataJSON, update=False)
+                        # check if received data is about order books
+                        elif 'order_book_updates' in dataJSON['topic'] and dataJSON['event'] == 'update':
+                            get_order_books_and_deltas(dataJSON, update=True)
                         else:
                             print(dataJSON)
                     else:
