@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.fmfw.io/api/2/public/symbol'
 answer = requests.get(currency_url)
@@ -91,14 +92,15 @@ async def main():
 					"id": 123
 				}))
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"method": "subscribeOrderbook",
-					"params": {
-						"symbol": f"{list_currencies[i]}"
-					},
-					"id": 123
-				}))
+				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"method": "subscribeOrderbook",
+						"params": {
+							"symbol": f"{list_currencies[i]}"
+						},
+						"id": 123
+					}))
 
 			while True:
 				data = await ws.recv()
