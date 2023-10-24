@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs
 currency_url = 'https://coinsbit.io/api/v1/public/markets'
@@ -31,18 +32,18 @@ async def subscribe(ws, symbol):
 
 	await asyncio.sleep(0.01)
 
-	# create the subscription for full orderbooks and updates
-	await ws.send(json.dumps({
-		"method": "depth.subscribe",
-		"params": [
-			f"{symbol}",
-			100,
-			"0"
-		],
-		"id": id2
-	}))
-
-	id2 += 1
+	if os.getenv("SKIP_ORDERBOOKS") == None:
+		# create the subscription for full orderbooks and updates
+		await ws.send(json.dumps({
+			"method": "depth.subscribe",
+			"params": [
+				f"{symbol}",
+				100,
+				"0"
+			],
+			"id": id2
+		}))
+		id2 += 1
 
 	await asyncio.sleep(300)
 
