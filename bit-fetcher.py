@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs
 currency_url = 'https://api.bit.com/spot/v1/instruments'
@@ -110,18 +111,18 @@ async def main():
 					],
 					"interval": "100ms"
 				}))
-
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"type": "subscribe",
-					"instruments": [
-						f"{list_currencies[i]}" + "-PERPETUAL"
-					],
-					"channels": [
-						"depth"
-					],
-					"interval": "100ms"
-				}))
+				if os.getenv("SKIP_ORDERBOOKS") == None:
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"type": "subscribe",
+						"instruments": [
+							f"{list_currencies[i]}" + "-PERPETUAL"
+						],
+						"channels": [
+							"depth"
+						],
+						"interval": "100ms"
+					}))
 
 			while True:
 
