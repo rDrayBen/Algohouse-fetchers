@@ -3,12 +3,14 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.aex.zone/v3/allpair.php'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 WS_URL = 'wss://aex2.yxds.net.cn/wsv3'
+
 
 
 for element in currencies["data"]:
@@ -89,12 +91,13 @@ async def main():
 					"symbol": f"{list_currencies[i]}"
 				}))
 
-				# create the subscription for full orderbooks
-				await ws.send(json.dumps({
-					"cmd": 3,
-					"action": "sub",
-					"symbol": f"{list_currencies[i]}"
-				}))
+				if os.getenv("SKIP_ORDERBOOKS") == None:
+					# create the subscription for full orderbooks
+					await ws.send(json.dumps({
+						"cmd": 3,
+						"action": "sub",
+						"symbol": f"{list_currencies[i]}"
+					}))
 
 			while True:
 				data = await ws.recv()
