@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.global.crosstower.com/api/2/public/symbol'
 answer = requests.get(currency_url)
