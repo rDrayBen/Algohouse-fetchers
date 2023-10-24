@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.dydx.exchange/v3/markets'
 answer = requests.get(currency_url)
@@ -86,12 +87,13 @@ async def main():
 			meta_data = asyncio.create_task(metadata())
 			for i in range(len(list_currencies)):
 				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"type": "subscribe",
-					"channel": "v3_orderbook",
-					"id": f"{list_currencies[i]}",
-					"batched": False
-				}))
+				if (os.getenv("SKIP_ORDERBOOKS") == None): # don't subscribe or report orderbook changes
+					await ws.send(json.dumps({
+						"type": "subscribe",
+						"channel": "v3_orderbook",
+						"id": f"{list_currencies[i]}",
+						"batched": False
+					}))
 				# create the subscription for trades
 				await ws.send(json.dumps({
 					"type": "subscribe",
