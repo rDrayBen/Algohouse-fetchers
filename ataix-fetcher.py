@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.ataix.com/api/symbols'
 answer = requests.get(currency_url)
@@ -31,17 +32,17 @@ async def subscribe(ws, symbol):
 	id1 += 1
 
 	await asyncio.sleep(0.01)
+	if os.getenv("SKIP_ORDERBOOKS") == None:
+		# create the subscription for full orderbooks and updates
+		await ws.send(json.dumps({
+			"method": "subscribeBook",
+			"params": {
+				"symbol": f"{symbol}"
+			},
+			"id": id2
+		}))
 
-	# create the subscription for full orderbooks and updates
-	await ws.send(json.dumps({
-		"method": "subscribeBook",
-		"params": {
-			"symbol": f"{symbol}"
-		},
-		"id": id2
-	}))
-
-	id2 += 1
+		id2 += 1
 
 	await asyncio.sleep(300)
 
