@@ -39,28 +39,6 @@ def get_trades(var, currency):
 				  elem["amount"], flush=True)
 
 
-# def get_order_books(var, update):
-# 	order_data = var
-# 	if 'ask' in order_data['params'] and len(order_data["params"]["ask"]) != 0:
-# 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['params']['symbol'] + ' S '
-# 		pq = "|".join(el["size"] + "@" + el["price"] for el in order_data["params"]["ask"])
-# 		answer = order_answer + pq
-# 		# checking if the input data is full orderbook or just update
-# 		if (update == True):
-# 			print(answer)
-# 		else:
-# 			print(answer + " R")
-#
-# 	if 'bid' in order_data['params'] and len(order_data["params"]["bid"]) != 0:
-# 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['params']['symbol'] + ' B '
-# 		pq = "|".join(el["size"] + "@" + el["price"] for el in order_data["params"]["bid"])
-# 		answer = order_answer + pq
-# 		# checking if the input data is full orderbook or just update
-# 		if (update == True):
-# 			print(answer)
-# 		else:
-# 			print(answer + " R")
-
 
 async def heartbeat(ws):
 	while True:
