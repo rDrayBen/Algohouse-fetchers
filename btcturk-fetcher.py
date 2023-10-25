@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.btcturk.com/api/v2/server/exchangeinfo'
 answer = requests.get(currency_url)
@@ -89,15 +90,16 @@ async def main():
 					  "join":True}
 					 ]))
 
-				# create the subscription for trades
-				await ws.send(json.dumps(
-					[151,
-					 {"type":151,
-					  "channel":"trade",
-					  "event":f"{list_currencies[i]}",
-					  "join":True}
-					 ]
-				))
+				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+					# create the subscription for trades
+					await ws.send(json.dumps(
+						[151,
+						 {"type":151,
+						  "channel":"trade",
+						  "event":f"{list_currencies[i]}",
+						  "join":True}
+						 ]
+					))
 
 			while True:
 				data = await ws.recv()
