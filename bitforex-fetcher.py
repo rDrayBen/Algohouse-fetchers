@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.bitforex.com/api/v1/market/symbols'
@@ -93,17 +94,21 @@ async def subscribe(ws):
                      "event": "trade",
                      "param": {"businessType": key,
                                "size": 1}
-                     },
-                    {"type": "subHq",
-                     "event": "depth10",
-                     "param": {"businessType": key,
-                               "dType": 1}},
-                    {"type": "subHq",
-                     "event": "depth10",
-                     "param": {"businessType": key,
-                               "dType": 0}}
+                     }
                 ]))
                 await asyncio.sleep(0.1)
+                if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+                    await ws.send(json.dumps([
+                        {"type": "subHq",
+                         "event": "depth10",
+                         "param": {"businessType": key,
+                                   "dType": 1}},
+                        {"type": "subHq",
+                         "event": "depth10",
+                         "param": {"businessType": key,
+                                   "dType": 0}}
+                    ]))
+                    await asyncio.sleep(0.1)
         # print(check_activity)
         for symbol in list(check_activity):
             check_activity[symbol] = False
