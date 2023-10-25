@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.exmo.com/v1.1/pair_settings'
@@ -89,10 +90,16 @@ async def subscribe(ws):
                 await ws.send(json.dumps({
                     "method": "subscribe",
                     "topics": [
-                        f"spot/trades:{key}",
-                        f"spot/order_book_updates:{key}"
+                        f"spot/trades:{key}"
                     ]
                 }))
+                if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+                    await ws.send(json.dumps({
+                        "method": "subscribe",
+                        "topics": [
+                            f"spot/order_book_updates:{key}"
+                        ]
+                    }))
         for symbol in list(check_activity):
             check_activity[symbol] = False
         await asyncio.sleep(3000)
