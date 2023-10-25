@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.poloniex.com/markets'
 answer = requests.get(currency_url)
@@ -82,12 +83,13 @@ async def subscribe(ws):
             "symbols": resub_list_trades
         }))
         await asyncio.sleep(1.01) # A single IP is limited to 2000 simultaneous connections on each of the public and private channels.
-        await ws.send(json.dumps({
-            "event": "subscribe",
-            "channel": ["book_lv2"],
-            "symbols": resub_list_books,
-            "depth": 20
-        }))
+        if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+            await ws.send(json.dumps({
+                "event": "subscribe",
+                "channel": ["book_lv2"],
+                "symbols": resub_list_books,
+                "depth": 20
+            }))
         # print(check_activity)
         for symbol in list(check_activity):
             check_activity[symbol] = False
