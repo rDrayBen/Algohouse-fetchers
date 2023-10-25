@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.hitbtc.com/api/3/public/symbol'
@@ -17,7 +18,6 @@ precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000
 # fill the list with all available symbol pairs on exchange
 for pair_s in currencies:
     list_currencies.append(pair_s)
-
 
 async def metadata():
     for pair in list_currencies:
@@ -100,14 +100,15 @@ async def subscribe(ws):
         },
         "id": 123
     }))
-    await ws.send(json.dumps({
-        "method": "subscribe",
-        "ch": "orderbook/full",
-        "params": {
-            "symbols": list_currencies
-        },
-        "id": 123
-    }))
+    if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+        await ws.send(json.dumps({
+            "method": "subscribe",
+            "ch": "orderbook/full",
+            "params": {
+                "symbols": list_currencies
+            },
+            "id": 123
+        }))
 
 
 async def main():
