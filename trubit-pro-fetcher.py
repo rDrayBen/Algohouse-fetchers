@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.mexo.io/openapi/v1/exchange'
@@ -91,14 +92,15 @@ async def subscribe(ws):
             "binary": False
           }
         }))
-        await ws.send(json.dumps({
-          "symbol": f"{symbol}",
-          "topic": "diffDepth",
-          "event": "sub",
-          "params": {
-            "binary": False
-          }
-        }))
+        if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+            await ws.send(json.dumps({
+              "symbol": f"{symbol}",
+              "topic": "diffDepth",
+              "event": "sub",
+              "params": {
+                "binary": False
+              }
+            }))
 
 
 async def main():
