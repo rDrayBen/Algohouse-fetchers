@@ -82,24 +82,24 @@ async def main():
 
 			for i in range(len(list_currencies)):
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps([151,
-					 {"type":151,
-					  "channel":"obdiff",
-					  "event":f"{list_currencies[i]}",
-					  "join":True}
-					 ]))
-
 				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
-					# create the subscription for trades
-					await ws.send(json.dumps(
-						[151,
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps([151,
 						 {"type":151,
-						  "channel":"trade",
+						  "channel":"obdiff",
 						  "event":f"{list_currencies[i]}",
 						  "join":True}
-						 ]
-					))
+						 ]))
+
+				# create the subscription for trades
+				await ws.send(json.dumps(
+					[151,
+					 {"type":151,
+						"channel":"trade",
+						"event":f"{list_currencies[i]}",
+						"join":True}
+						]
+				))
 
 			while True:
 				data = await ws.recv()
