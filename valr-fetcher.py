@@ -3,6 +3,8 @@ import requests
 import websockets
 import time
 import asyncio
+import os
+
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.valr.com/v1/public/pairs'
@@ -118,14 +120,20 @@ async def subscribe(ws):
                 {
                     "event": "NEW_TRADE",
                     "pairs": resub_list
-                },
-                {
-                    "event": "FULL_ORDERBOOK_UPDATE",
-                    "pairs": resub_list
                 }
             ]
         }))
-        await subscribe_agg_orderbook(ws)
+        if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+            await ws.send(json.dumps({
+                "type": "SUBSCRIBE",
+                "subscriptions": [
+                    {
+                        "event": "FULL_ORDERBOOK_UPDATE",
+                        "pairs": resub_list
+                    }
+                ]
+            }))
+            await subscribe_agg_orderbook(ws)
         # print(check_activity, len(resub_list))
         for symbol in list(check_activity):
             check_activity[symbol] = False
