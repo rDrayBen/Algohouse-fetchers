@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.phemex.com/public/products'
@@ -10,7 +11,7 @@ answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 # base web socket url
-WS_URL = 'wss://phemex.com/ws'
+WS_URL = 'wss://ws.phemex.com'
 
 
 # fill the list with all available symbol pairs on exchange
@@ -37,11 +38,12 @@ def get_unix_time():
 def get_trades(message):
     # check if coin name has some trash symbols in it and removing them if occurs
     s_name = message['symbol'].replace('u', '')
+    s_name = s_name.replace('с', '')
     s_name = s_name.replace('1', '')
     s_name = s_name.replace('0', '')
-    s_name = s_name.replace('с', '')
+
     for elem in message['trades']:
-        print('!', get_unix_time(), s_name,
+        print('!', get_unix_time(), s_name.replace('c', ''),
               elem[1][0], str('{0:.4f}'.format(elem[2]/10000)),
               str('{0:.4f}'.format(elem[3]/1000)), flush=True)
 
@@ -50,13 +52,14 @@ def get_trades(message):
 def get_order_books_and_deltas(message, update):
     # check if coin name has some trash symbols in it and removing them if occurs
     s_name = message['symbol'].replace('u', '')
+    s_name = s_name.replace('с', '')
     s_name = s_name.replace('1', '')
     s_name = s_name.replace('0', '')
-    s_name = s_name.replace('с', '')
+
     # check if bids array is not Null
     if 'bids' in message['book'] and message['book']['bids']:
-        order_answer = '$ ' + str(get_unix_time()) + ' ' + s_name + ' B '
-        pq = '|'.join(f"{str('{0:.4f}'.format(elem[1]/1000))}@{str('{0:.4f}'.format(elem[0]/10000))}"
+        order_answer = '$ ' + str(get_unix_time()) + ' ' + s_name.replace('c', '') + ' B '
+        pq = '|'.join(f"{str('{0:.5f}'.format(elem[1] / 1000))}@{str('{0:.5f}'.format(elem[0] / 10000))}"
                       for elem in message['book']['bids'])
         # check if the input data is full order book or just update
         if update:
@@ -67,8 +70,8 @@ def get_order_books_and_deltas(message, update):
 
     # check if asks array is not Null
     if 'asks' in message['book'] and message['book']['asks']:
-        order_answer = '$ ' + str(get_unix_time()) + ' ' + s_name + ' S '
-        pq = '|'.join(f"{str('{0:.4f}'.format(elem[1] / 1000))}@{str('{0:.4f}'.format(elem[0] / 10000))}"
+        order_answer = '$ ' + str(get_unix_time()) + ' ' + s_name.replace('c', '') + ' S '
+        pq = '|'.join(f"{str('{0:.5f}'.format(elem[1] / 1000))}@{str('{0:.5f}'.format(elem[0] / 10000))}"
                       for elem in message['book']['asks'])
         # check if the input data is full order book or just update
         if update:
@@ -94,20 +97,21 @@ async def subscribe(ws):
     # subscribe for listed topics
     for symbol in list_currencies:
         await ws.send(json.dumps({
-          "id": 1,
-          "method": "orderbook.subscribe",
-          "params": [
-            symbol,
-            True
-          ]
+            "id": 1,
+            "method": "trade.subscribe",
+            "params": [
+                symbol
+            ]
         }))
-        await ws.send(json.dumps({
-          "id": 1,
-          "method": "trade.subscribe",
-          "params": [
-            symbol
-          ]
-        }))
+        if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+            await ws.send(json.dumps({
+              "id": 1,
+              "method": "orderbook.subscribe",
+              "params": [
+                symbol,
+                True
+              ]
+            }))
 
 
 async def main():
