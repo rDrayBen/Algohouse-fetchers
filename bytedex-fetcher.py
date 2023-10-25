@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://apiv2.bytedex.io/config'
 answer = requests.get(currency_url)
@@ -30,11 +31,19 @@ async def subscribe(ws):
 
 	for i in range(len(list_currencies)):
 
-		# create the subscription for full orderbooks and trades
+		if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+			# create the subscription for orderbooks and updates
+			await ws.send(json.dumps({
+				"method":"subscribe",
+				"channels": [
+					f"books-delta.{list_currencies[i]}"
+				]
+			}))
+
+		# create the subscription for trades
 		await ws.send(json.dumps({
-			"method":"subscribe",
-			"channels":[
-				f"books-delta.{list_currencies[i]}",
+			"method": "subscribe",
+			"channels": [
 				f"trades.{list_currencies[i]}"
 			]
 		}))
