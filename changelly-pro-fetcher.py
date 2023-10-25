@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.pro.changelly.com/api/3/public/symbol'
@@ -101,14 +102,15 @@ async def subscribe(ws):
         },
         "id": 123
     }))
-    await ws.send(json.dumps({
-        "method": "subscribe",
-        "ch": "orderbook/full",
-        "params": {
-            "symbols": list_currencies
-        },
-        "id": 123
-    }))
+    if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+        await ws.send(json.dumps({
+            "method": "subscribe",
+            "ch": "orderbook/full",
+            "params": {
+                "symbols": list_currencies
+            },
+            "id": 123
+        }))
 
 
 async def main():
