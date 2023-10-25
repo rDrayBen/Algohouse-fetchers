@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.bittilo.com/v2/constants'
 answer = requests.get(currency_url)
@@ -33,7 +34,7 @@ def get_trades(var):
 	trade_data = var
 	if 'data' in trade_data:
 		for elem in trade_data["data"]:
-			print('!', get_unix_time(), trade_data['symbol'],
+			print('!', get_unix_time(), trade_data['symbol'].upper(),
 				  "B" if elem["side"] == "buy" else "S", str(elem['price']),
 				  elem["size"], flush=True)
 
@@ -42,14 +43,14 @@ def get_order_books(var, update):
 	order_data = var
 
 	if 'bids' in order_data['data'] and len(order_data["data"]["bids"]) != 0:
-		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'] + ' B '
+		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'].upper() + ' B '
 		pq = "|".join(str(el[1]) + "@" + str(el[0]) for el in order_data["data"]["bids"])
 		answer = order_answer + pq
 
 		print(answer + " R")
 
 	if 'asks' in order_data['data'] and len(order_data["data"]["asks"]) != 0:
-		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'] + ' S '
+		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'].upper() + ' S '
 		pq = "|".join(str(el[1]) + "@" + str(el[0]) for el in order_data["data"]["asks"])
 		answer = order_answer + pq
 
@@ -83,13 +84,14 @@ async def main():
                     ]
                 }))
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-                    "op":"subscribe",
-                    "args":[
-                        f"orderbook:{list_currencies[i]}"
-                    ]
-                }))
+				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+                  	  "op":"subscribe",
+                    	"args":[
+                     	   f"orderbook:{list_currencies[i]}"
+                    	]
+                	}))
 
 			while True:
 				data = await ws.recv()
