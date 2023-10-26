@@ -3,7 +3,6 @@ import requests
 import websockets
 import time
 import asyncio
-import os
 
 currency_url = 'https://api.fmfw.io/api/2/public/symbol'
 answer = requests.get(currency_url)
@@ -124,29 +123,6 @@ async def main():
 			# create task to get metadata about each pair of symbols
 			meta_data = asyncio.create_task(metadata())
 
-<<<<<<< HEAD
-=======
-			for i in range(len(list_currencies)):
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"method": "subscribeTrades",
-					"params": {
-						"symbol": f"{list_currencies[i]}",
-						"limit": 100
-					},
-					"id": 123
-				}))
-
-				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
-					# create the subscription for full orderbooks and updates
-					await ws.send(json.dumps({
-						"method": "subscribeOrderbook",
-						"params": {
-							"symbol": f"{list_currencies[i]}"
-						},
-						"id": 123
-					}))
->>>>>>> 8722f71ef82e54ad32721f0b0d025344782378f4
 
 			while True:
 				data = await ws.recv()
