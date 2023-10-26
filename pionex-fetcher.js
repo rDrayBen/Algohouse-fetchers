@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const tradeWsUrl = 'wss://ws.pionex.com/wsPub';
@@ -217,7 +218,10 @@ var wsTradeArr = [];
 var wsOrderArr = [];
 for(let i = 0; i < currencies.length; i++){
     wsTradeArr.push(Connect1(i));
-    wsOrderArr.push(Connect2(i));
+    if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+        wsOrderArr.push(Connect2(i));
+    }
+    
     await sleep(500);
 }
 

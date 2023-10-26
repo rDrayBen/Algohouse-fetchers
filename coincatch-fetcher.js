@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
-
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://stream.coincatch.com/spot/v1/stream?compress=false';
@@ -114,19 +114,20 @@ async function Connect(pair){
                 ]
             }
         ));
-        ws.send(JSON.stringify(
-            {
-                "op": "subscribe",
-                "args": [
-                    {
-                        "channel": "books15",
-                        "instType": "sp",
-                        "instId": pair
-                    }
-                ]
-            }
-        ));
-            
+        if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+            ws.send(JSON.stringify(
+                {
+                    "op": "subscribe",
+                    "args": [
+                        {
+                            "channel": "books15",
+                            "instType": "sp",
+                            "instId": pair
+                        }
+                    ]
+                }
+            ));
+        }
     };
 
 

@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://ws-api.coincheck.com/';
@@ -111,25 +112,30 @@ async function getOrderbook(pair){
     const response = await fetch(orderbookUrlBase + pair);
     //extract JSON from the http response
     const responseJSON = await response.json(); 
-    if(responseJSON['asks'].length > 0){
-        var order_answer = '$ ' + getUnixTime() + ' ' + pair.toUpperCase() + ' S '
-        var pq = '';
-        for(let i = 0; i < responseJSON['asks'].length; i++){
-            pq += parseFloat(responseJSON['asks'][i][1]).noExponents() + '@' + parseFloat(responseJSON['asks'][i][0]).noExponents() + '|';
+    try{
+        if(responseJSON['asks'].length > 0){
+            var order_answer = '$ ' + getUnixTime() + ' ' + pair.toUpperCase() + ' S '
+            var pq = '';
+            for(let i = 0; i < responseJSON['asks'].length; i++){
+                pq += parseFloat(responseJSON['asks'][i][1]).noExponents() + '@' + parseFloat(responseJSON['asks'][i][0]).noExponents() + '|';
+            }
+            pq = pq.slice(0, -1);
+            console.log(order_answer + pq + ' R');
         }
-        pq = pq.slice(0, -1);
-        console.log(order_answer + pq + ' R');
-    }
 
-    if(responseJSON['bids'].length > 0){
-        var order_answer = '$ ' + getUnixTime() + ' ' + pair.toUpperCase() + ' B '
-        var pq = '';
-        for(let i = 0; i < responseJSON['bids'].length; i++){
-            pq += parseFloat(responseJSON['bids'][i][1]).noExponents() + '@' + parseFloat(responseJSON['bids'][i][0]).noExponents() + '|';
+        if(responseJSON['bids'].length > 0){
+            var order_answer = '$ ' + getUnixTime() + ' ' + pair.toUpperCase() + ' B '
+            var pq = '';
+            for(let i = 0; i < responseJSON['bids'].length; i++){
+                pq += parseFloat(responseJSON['bids'][i][1]).noExponents() + '@' + parseFloat(responseJSON['bids'][i][0]).noExponents() + '|';
+            }
+            pq = pq.slice(0, -1);
+            console.log(order_answer + pq + ' R');
         }
-        pq = pq.slice(0, -1);
-        console.log(order_answer + pq + ' R');
+    }catch(e){
+
     }
+    
     
 }
 
@@ -250,10 +256,13 @@ async function ConnectDeltas(){
 
 Metadata();
 ConnectTrades();
-for(let pair of currencies){
-    getOrderbook(pair);
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    for(let pair of currencies){
+        getOrderbook(pair);
+    }
+    ConnectDeltas();
 }
-ConnectDeltas();
+
  
 
 

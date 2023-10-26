@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 
 // define the websocket and REST URLs
@@ -123,14 +124,17 @@ async function Connect(){
                         }
                     ));
                     // console.log('subbed for', key);
-                    // sub for orders/deltas
-                    ws.send(JSON.stringify(
-                        {
-                            "Topic": "subscribe", 
-                            "Type": "orderbook", 
-                            "Pair": key
-                        }
-                    )); 
+                    if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                        // sub for orders/deltas
+                        ws.send(JSON.stringify(
+                            {
+                                "Topic": "subscribe", 
+                                "Type": "orderbook", 
+                                "Pair": key
+                            }
+                        )); 
+                    }
+                    
                 }
                 
             }

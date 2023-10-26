@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 
 // define the websocket and REST URLs
@@ -265,12 +266,15 @@ Metadata();
 ConnectTrades();
 var connections = [];
 async function subscribe(){
+    if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
     for(const [key, value] of Object.entries(check_activity)){
         if(value === false){
             connections.push(ConnectOrders(key));
             await new Promise((resolve) => setTimeout(resolve, 500));
         }
     }
+    }
+    
     // console.log(check_activity);
     for (var key in check_activity) {
         check_activity[key] = false;
@@ -280,4 +284,7 @@ async function subscribe(){
 
 subscribe();
 setInterval(subscribe, 3000000); // resub every 50 min
+
+
+
 
