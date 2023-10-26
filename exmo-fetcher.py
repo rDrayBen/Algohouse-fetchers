@@ -93,7 +93,7 @@ async def subscribe(ws):
                         f"spot/trades:{key}"
                     ]
                 }))
-                if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+                if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
                     await ws.send(json.dumps({
                         "method": "subscribe",
                         "topics": [
