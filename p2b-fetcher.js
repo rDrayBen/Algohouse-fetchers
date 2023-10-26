@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 
 // define the websocket and REST URLs
@@ -10,10 +11,12 @@ const response = await fetch(restUrl);
 //extract JSON from the http response
 const myJson = await response.json(); 
 var currencies = [];
+var check_activity = {};
 
 // extract symbols from JSON returned information
 for(let i = 0; i < myJson['result'].length; ++i){
     currencies.push(myJson['result'][i]['name']);
+    check_activity[myJson['result'][i]['name']] = false;
 }
 
 
@@ -61,6 +64,7 @@ Number.prototype.noExponents = function() {
  * For each trade, it prints out a string containing the timestamp, market name, type (buy or sell), price and amount.
  */
 async function getTrades(message){
+    check_activity[message['params'][0]] = true;
     message['params'][1].forEach((item)=>{
         var trade_output = '! ' + getUnixTime() + ' ' + message['params'][0] + ' ' + 
         item['type'][0].toUpperCase() + ' ' + parseFloat(item['price']).noExponents() + ' ' + parseFloat(item['amount']).noExponents();
@@ -84,6 +88,7 @@ ws
  *
  */
 async function getOrders(message, update){
+    check_activity[message['params'][2]] = true;
     // check if bids array is not Null
     if(message['params'][1]['bids']){
         var order_answer = '$ ' + getUnixTime() + ' ' + message['params'][2] + ' B '
@@ -154,11 +159,13 @@ async function ConnectTrades(){
         try{
             // parse input data to JSON format
             let dataJSON = JSON.parse(event.data);
-            if (dataJSON['method'] === 'deals.update' && dataJSON['params'][1].length < 20){
+            if (dataJSON['method'] === 'deals.update'){
                 getTrades(dataJSON);
-            }else if(dataJSON['method'] === 'deals.update' && dataJSON['params'][1].length > 20){
-                // skip trades history
-            }else{
+            }
+            // else if(dataJSON['method'] === 'deals.update' && dataJSON['params'][1].length > 20){
+            //     // skip trades history
+            // }
+            else{
                 console.log(dataJSON);
             }
         }catch(e){
@@ -258,11 +265,26 @@ async function ConnectOrders(pair){
 Metadata();
 ConnectTrades();
 var connections = [];
-
-for(let pair of currencies){
-    connections.push(ConnectOrders(pair));
-    await new Promise((resolve) => setTimeout(resolve, 500));
+async function subscribe(){
+    if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    for(const [key, value] of Object.entries(check_activity)){
+        if(value === false){
+            connections.push(ConnectOrders(key));
+            await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+    }
+    }
+    
+    // console.log(check_activity);
+    for (var key in check_activity) {
+        check_activity[key] = false;
+    }
+    // console.log(check_activity);
 }
+
+subscribe();
+setInterval(subscribe, 3000000); // resub every 50 min
+
 
 
 

@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://perp-api.openocean.finance/arbitrum/ws/market';
@@ -113,17 +114,20 @@ async function Connect(){
                     ]
                 }
             ));
-            ws.send(JSON.stringify(
-                {
-                    "op":"subscribe",
-                    "args":[
-                        {
-                            "channel":"depth20",
-                            "symbol":pair
-                        }
-                    ]
-                }
-            ));
+            if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                ws.send(JSON.stringify(
+                    {
+                        "op":"subscribe",
+                        "args":[
+                            {
+                                "channel":"depth20",
+                                "symbol":pair
+                            }
+                        ]
+                    }
+                ));
+            }
+            
         });
     };
 

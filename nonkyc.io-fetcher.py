@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://nonkyc.io/api/v2/markets'
 answer = requests.get(currency_url)
@@ -92,13 +93,14 @@ async def main():
 					"id": 123
 				}))
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"method": "subscribeTrades",
-					"params": {
-						"symbol": f"{list_currencies[i]}"
-					}
-				}))
+				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"method": "subscribeTrades",
+						"params": {
+							"symbol": f"{list_currencies[i]}"
+						}
+					}))
 
 			while True:
 				data = await ws.recv()

@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs
 currency_url = 'https://api.jbex.com/openapi/v1/brokerInfo'
@@ -36,18 +37,18 @@ async def subscribe(ws, symbol):
 
 	await asyncio.sleep(0.01)
 
-	# create the subscription for full orderbooks and updates
-	# create the subscription for full orderbooks and updates
-	await ws.send(json.dumps({
-		"symbol": f"{symbol}",
-		"topic": "diffDepth",
-		"event": "sub",
-		"params": {
-			"binary": False
-		}
-	}))
+	if os.getenv("SKIP_ORDERBOOKS") == None:
+		# create the subscription for full orderbooks and updates
+		await ws.send(json.dumps({
+			"symbol": f"{symbol}",
+			"topic": "diffDepth",
+			"event": "sub",
+			"params": {
+				"binary": False
+			}
+		}))
 
-	id2 += 1
+		id2 += 1
 
 	await asyncio.sleep(300)
 

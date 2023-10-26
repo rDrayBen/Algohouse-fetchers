@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.icrypex.com/v1/exchange/info'
 answer = requests.get(currency_url)
@@ -32,8 +33,9 @@ def get_unix_time():
 
 async def subscription(ws):
 	for i in range(len(list_currencies)):
-		# create the subscription for full orderbooks and updates
-		await ws.send(f'subscribe|{json.dumps({"c": f"orderbook@{list_currencies[i]}","s": True})}')
+		if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+			# create the subscription for full orderbooks and updates
+			await ws.send(f'subscribe|{json.dumps({"c": f"orderbook@{list_currencies[i]}","s": True})}')
 
 		# create the subscription for trades
 		await ws.send(f'subscribe|{json.dumps({"c": f"trade@{list_currencies[i]}", "s": True})}')

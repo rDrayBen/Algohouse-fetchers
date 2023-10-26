@@ -4,6 +4,7 @@ import websockets
 import time
 import asyncio
 
+
 currency_url = 'https://exmarkets.com/api/v1/general/info'
 answer = requests.get(currency_url)
 currencies = answer.json()

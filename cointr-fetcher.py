@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.cointr.pro/v1/spot/public/instruments'
 answer = requests.get(currency_url)
@@ -27,19 +28,19 @@ async def metadata():
 
 
 async def subscribe(ws, symbol):
+	if os.getenv("SKIP_ORDERBOOKS") == None:
+		# create the subscription for full orderbooks and updates
+		await ws.send(json.dumps({
+			"args": [{
+				"limit": 30,
+				"step": "0.001",
+				"instId": f"{symbol}"
+			}],
+			"channel": "spot_depth",
+			"op": "subscribe"
+		}))
 
-	# create the subscription for full orderbooks and updates
-	await ws.send(json.dumps({
-		"args": [{
-			"limit": 30,
-			"step": "0.001",
-			"instId": f"{symbol}"
-		}],
-		"channel": "spot_depth",
-		"op": "subscribe"
-	}))
-
-	await asyncio.sleep(0.001)
+		await asyncio.sleep(0.001)
 
 	# create the subscription for trades
 	await ws.send(json.dumps({

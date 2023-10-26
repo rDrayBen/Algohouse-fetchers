@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.narkasa.com/v3/api/market/markets'
 answer = requests.get(currency_url)
@@ -81,15 +82,16 @@ async def main():
 					}]
 				}))
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"method": "SUBSCRIBE",
-					"params": [{
-						"type": "depth",
-						"symbol": f"{list_currencies[i]}",
-						"interval": "m5"
-					}]
-				}))
+				if (os.getenv("SKIP_ORDERBOOKS") == None):
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"method": "SUBSCRIBE",
+						"params": [{
+							"type": "depth",
+							"symbol": f"{list_currencies[i]}",
+							"interval": "m5"
+						}]
+					}))
 
 			while True:
 				data = await ws.recv()

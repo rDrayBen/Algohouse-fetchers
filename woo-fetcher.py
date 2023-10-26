@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.woo.org/v1/public/info'
@@ -91,18 +92,19 @@ async def subscribe(ws):
             "topic": f"SPOT_{symbol}@trade",
             "event": "subscribe"
         }))
-        # subscribe to all order books
-        await ws.send(json.dumps({
-            "id": f"{UI}",
-            "topic": f"SPOT_{symbol}@orderbook",
-            "event": "subscribe"
-        }))
-        # subscribe to all order book updates
-        await ws.send(json.dumps({
-            "id": f"{UI}",
-            "topic": f"SPOT_{symbol}@orderbookupdate",
-            "event": "subscribe"
-        }))
+        if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
+            # subscribe to all order books
+            await ws.send(json.dumps({
+                "id": f"{UI}",
+                "topic": f"SPOT_{symbol}@orderbook",
+                "event": "subscribe"
+            }))
+            # subscribe to all order book updates
+            await ws.send(json.dumps({
+                "id": f"{UI}",
+                "topic": f"SPOT_{symbol}@orderbookupdate",
+                "event": "subscribe"
+            }))
 
 
 async def main():

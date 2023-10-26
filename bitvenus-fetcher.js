@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
-
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const tradeWsUrl = 'wss://www.bitvenus.me/ws/quote/v1';
@@ -249,5 +249,8 @@ async function ConnectOrders(){
 
 Metadata();
 await ConnectTrades();
-await ConnectOrders();
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    await ConnectOrders();
+}
+
 

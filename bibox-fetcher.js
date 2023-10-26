@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import zlib from 'zlib';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 // const wsUrl = 'wss://npush.bibox360.com';
@@ -163,9 +164,12 @@ wsClass.prototype._initWs = async function () {
                     event: 'addChannel',
                     sub: `${item}_deals`,
                 }));
-                ws.send(JSON.stringify({
-                    sub: `${item}_depth`,
-                }));
+                if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                    ws.send(JSON.stringify({
+                        sub: `${item}_depth`,
+                    }));  
+                }
+                
             }
         });
         

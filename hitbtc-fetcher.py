@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.hitbtc.com/api/3/public/symbol'
@@ -100,14 +101,15 @@ async def subscribe(ws):
         },
         "id": 123
     }))
-    await ws.send(json.dumps({
-        "method": "subscribe",
-        "ch": "orderbook/full",
-        "params": {
-            "symbols": list_currencies
-        },
-        "id": 123
-    }))
+    if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
+        await ws.send(json.dumps({
+            "method": "subscribe",
+            "ch": "orderbook/full",
+            "params": {
+                "symbols": list_currencies
+            },
+            "id": 123
+        }))
 
 
 async def main():

@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs
 currency_url = 'https://sapi.xt.com/v4/public/symbol'
@@ -97,23 +98,24 @@ async def main():
 					"id": "1"
 				}))
 
-				# create the subscription for full orderbooks
-				await ws.send(json.dumps({
-					"method": "subscribe",
-					"params": [
-						f"depth@{list_currencies[i]},50"
-					],
-					"id": "2"
-				}))
+				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+					# create the subscription for full orderbooks
+					await ws.send(json.dumps({
+						"method": "subscribe",
+						"params": [
+							f"depth@{list_currencies[i]},50"
+						],
+						"id": "2"
+					}))
 
-				# create the subscription for updates
-				await ws.send(json.dumps({
-					"method": "subscribe",
-					"params": [
-						f"depth_update@{list_currencies[i]}"
-					],
-					"id": "3"
-				}))
+					# create the subscription for updates
+					await ws.send(json.dumps({
+						"method": "subscribe",
+						"params": [
+							f"depth_update@{list_currencies[i]}"
+						],
+						"id": "3"
+					}))
 
 			while True:
 
