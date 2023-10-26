@@ -86,7 +86,7 @@ async def subscribe(ws):
             "sub": f"market.{key + value}.trade.detail",
             'id': '428550639'
         }))
-        if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+        if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
             await ws.send(json.dumps({
                 "sub": f"market.{key + value}.depth.step0",
                 'id': '428550639'

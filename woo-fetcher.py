@@ -92,7 +92,7 @@ async def subscribe(ws):
             "topic": f"SPOT_{symbol}@trade",
             "event": "subscribe"
         }))
-        if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+        if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
             # subscribe to all order books
             await ws.send(json.dumps({
                 "id": f"{UI}",

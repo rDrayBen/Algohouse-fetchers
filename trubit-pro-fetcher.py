@@ -92,7 +92,7 @@ async def subscribe(ws):
             "binary": False
           }
         }))
-        if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+        if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
             await ws.send(json.dumps({
               "symbol": f"{symbol}",
               "topic": "diffDepth",

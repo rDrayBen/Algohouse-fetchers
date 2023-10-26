@@ -19,6 +19,7 @@ precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000
 for pair_s in currencies:
     list_currencies.append(pair_s)
 
+
 async def metadata():
     for pair in list_currencies:
         curr = currencies[pair]
@@ -100,7 +101,7 @@ async def subscribe(ws):
         },
         "id": 123
     }))
-    if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+    if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
         await ws.send(json.dumps({
             "method": "subscribe",
             "ch": "orderbook/full",

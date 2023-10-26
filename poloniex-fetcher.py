@@ -83,7 +83,7 @@ async def subscribe(ws):
             "symbols": resub_list_trades
         }))
         await asyncio.sleep(1.01) # A single IP is limited to 2000 simultaneous connections on each of the public and private channels.
-        if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+        if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
             await ws.send(json.dumps({
                 "event": "subscribe",
                 "channel": ["book_lv2"],
