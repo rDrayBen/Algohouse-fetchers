@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://api.vitex.net/v2/ws';
@@ -116,13 +117,14 @@ async function Connect(){
                     "params": [`market.${pair}.trade`]
                 }
             ));
-            ws.send(JSON.stringify(
-                {
-                    "command": "sub", 
-                    "params": [`market.${pair}.depth`]
-                }
-            ));
-            
+            if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                ws.send(JSON.stringify(
+                    {
+                        "command": "sub", 
+                        "params": [`market.${pair}.depth`]
+                    }
+                ));
+            }
         });
     };
 
