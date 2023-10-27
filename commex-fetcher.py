@@ -3,12 +3,13 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
-currency_url = 'https://www.upish.com/bapi/asset/v2/public/asset-service/product/get-products?includeEtf=true'
+currency_url = 'https://www.commex.com/bapi/asset/v2/public/asset-service/product/get-products?includeEtf=true'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://stream.upish.com/stream'
+WS_URL = 'wss://stream.commex.com/stream'
 
 for element in currencies["data"]:
 	list_currencies.append(element["s"].lower())
@@ -17,13 +18,42 @@ for element in currencies["data"]:
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in currencies["data"]:
-		pair_data = '@MD ' + pair["b"] + '-' + pair["q"] + ' spot ' + \
+		pair_data = '@MD ' + pair["b"] + pair["q"] + ' spot ' + \
 					pair["b"] + ' ' + pair["q"] + \
 					' ' + str(str(pair['ts'])[::-1].find('.')) + ' 1 1 0 0'
 
 		print(pair_data, flush=True)
 
 	print('@MDEND')
+
+
+async def subscribe(ws):
+
+
+	for i in range(len(list_currencies)):
+		# create the subscription for trades + full orderbooks and updates
+		await ws.send(json.dumps({
+			"method": "SUBSCRIBE",
+			"params": [
+				f"{list_currencies[i]}@aggTrade",
+			],
+			"id": 1
+		}))
+
+		await asyncio.sleep(0.5)
+
+		if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+			# create the subscription for full orderbooks and updates
+			await ws.send(json.dumps({
+				"method": "SUBSCRIBE",
+				"params": [
+					f"{list_currencies[i]}@depth"
+				],
+				"id": 1
+			}))
+
+
+	await asyncio.sleep(300)
 
 
 def get_unix_time():
@@ -67,30 +97,22 @@ async def main():
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
+
+			# create task to subscribe to symbols` pair
+			subscription = asyncio.create_task(subscribe(ws))
+
 			# create task to keep connection alive
-			#pong = asyncio.create_task(heartbeat(ws))
+			pong = asyncio.create_task(heartbeat(ws))
 
 			# create task to get metadata about each pair of symbols
 			meta_data = asyncio.create_task(metadata())
-
-			for i in range(len(list_currencies)):
-				# create the subscription for trades + full orderbooks and updates
-				await ws.send(json.dumps({
-					"method":"SUBSCRIBE",
-					"params":[
-						f"{list_currencies[i]}@aggTrade",
-				  		f"{list_currencies[i]}@depth"
-					],
-						"id":1
-				}))
-
-				await asyncio.sleep(0.5)
-
 
 			while True:
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
+
+				print(dataJSON)
 
 				if "stream" in dataJSON:
 
