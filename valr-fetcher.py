@@ -138,7 +138,7 @@ async def subscribe(ws):
         for symbol in list(check_activity):
             check_activity[symbol] = False
         # print(check_activity)
-        await asyncio.sleep(3000)
+        await asyncio.sleep(1800)
 
 
 async def subscribe_agg_orderbook(ws):
