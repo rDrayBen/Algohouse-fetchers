@@ -283,7 +283,7 @@ async function subscribe(){
 }
 
 subscribe();
-setInterval(subscribe, 3000000); // resub every 50 min
+setInterval(subscribe, 1800000); // resub every 50 min
 
 
 
