@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import zlib from 'zlib';
-
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://www.fameex.com/spot';
@@ -161,12 +161,12 @@ async function ConnectTrades(index){
 }
     
 
-
-var wsDepthArray = [];
-for(let i = 0; i < currencies.length; i++){
-    wsDepthArray.push(ConnectDepth(i));
-}
-  
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    var wsDepthArray = [];
+    for(let i = 0; i < currencies.length; i++){
+        wsDepthArray.push(ConnectDepth(i));
+    }
+} 
 
 async function ConnectDepth(index){
     var wsDepth = new WebSocket(wsUrl);
@@ -233,5 +233,3 @@ async function ConnectDepth(index){
 }
 
 Metadata();
-// ConnectTrades();
-// ConnectDepth();
