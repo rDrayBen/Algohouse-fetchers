@@ -10,6 +10,7 @@ currency_url = 'https://api.woo.org/v1/public/info'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
+check_activity = {}
 # base web socket url
 WS_URL = 'wss://wss.woo.org/ws/stream/1fbac7b8-d849-4f95-b2ef-cf988a95f4d3'
 # user id
@@ -30,8 +31,10 @@ async def metadata():
         pair_data = '@MD ' + pair['symbol'].split('_')[1] + '-' + pair['symbol'].split('_')[2] + ' spot ' + \
                     pair['symbol'].split('_')[1] + ' ' + pair['symbol'].split('_')[2] + ' ' + \
                     str(prec) + ' 1 1 0 0'
+        check_activity[pair['symbol'][5:]] = False
         print(pair_data, flush=True)
     print('@MDEND')
+    # print(check_activity)
 
 
 # function to get current time in unix format
@@ -41,6 +44,7 @@ def get_unix_time():
 
 # function to format the trades output
 def get_trades(message):
+    check_activity[message['symbol'][5:]] = True
     print('!', get_unix_time(), message['symbol'].split('_')[1] + '-' + message['symbol'].split('_')[2],
           message['side'][0].upper(), str('{0:.9f}'.format(message['price'])),
           str('{0:.9f}'.format(message['size'])), flush=True)
@@ -48,6 +52,7 @@ def get_trades(message):
 
 # function to format order books and deltas(order book updates) format
 def get_order_books_and_deltas(message, update):
+    check_activity[message['symbol'][5:]] = True
     # check if bids array is not Null
     if message['bids']:
         order_answer = '$ ' + str(get_unix_time()) + ' ' + message['symbol'].split('_')[1] + '-' +\
@@ -80,42 +85,40 @@ async def heartbeat(ws):
         await ws.send(json.dumps({
             'event': "ping"
         }))
-        await asyncio.sleep(5)
+        await asyncio.sleep(9)
 
 
-async def subscribe(ws):
+async def subscribe(ws, symb):
     # subscribe for listed topics
-    for symbol in list_currencies:
-        # subscribe to all trades
+    # subscribe to all trades
+    await ws.send(json.dumps({
+        "id": f"{UI}",
+        "topic": f"SPOT_{symb}@trade",
+        "event": "subscribe"
+    }))
+    if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
+        # subscribe to all order books
         await ws.send(json.dumps({
             "id": f"{UI}",
-            "topic": f"SPOT_{symbol}@trade",
+            "topic": f"SPOT_{symb}@orderbook",
             "event": "subscribe"
         }))
-        if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
-            # subscribe to all order books
-            await ws.send(json.dumps({
-                "id": f"{UI}",
-                "topic": f"SPOT_{symbol}@orderbook",
-                "event": "subscribe"
-            }))
-            # subscribe to all order book updates
-            await ws.send(json.dumps({
-                "id": f"{UI}",
-                "topic": f"SPOT_{symbol}@orderbookupdate",
-                "event": "subscribe"
-            }))
+        # subscribe to all order book updates
+        await ws.send(json.dumps({
+            "id": f"{UI}",
+            "topic": f"SPOT_{symb}@orderbookupdate",
+            "event": "subscribe"
+        }))
 
 
-async def main():
+async def connect(symbol):
     # create connection with server via base ws url
-    async for ws in websockets.connect(WS_URL, ping_interval=None):
+    async for ws in websockets.connect(WS_URL, ping_interval=9):
         try:
-            sub_task = asyncio.create_task(subscribe(ws))
+            sub_task = asyncio.create_task(subscribe(ws, symbol))
             # create task to keep connection alive
             pong = asyncio.create_task(heartbeat(ws))
-            # print metadata about each pair symbols
-            meta_data = asyncio.create_task(metadata())
+
             while True:
                 # receiving data from server
                 data = await ws.recv()
@@ -146,6 +149,24 @@ async def main():
                     print(f"Exception {e} occurred")
         except Exception as conn_e:
             print(f"WARNING: connection exception {conn_e} occurred")
+
+
+async def connectionHandler():
+    # print metadata about each pair symbols
+    meta_data = asyncio.create_task(metadata())
+    tasks = []
+
+    for symbol in list_currencies:
+        task = asyncio.create_task(connect(symbol))
+        tasks.append(task)
+        await asyncio.sleep(1)
+        # print(check_activity, 'bababa')
+    await asyncio.gather(*tasks)
+
+
+
+async def main():
+    await connectionHandler()
 
 # run main function
 asyncio.run(main())
