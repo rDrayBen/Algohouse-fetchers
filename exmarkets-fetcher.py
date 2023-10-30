@@ -8,9 +8,9 @@ import asyncio
 currency_url = 'https://exmarkets.com/api/v1/general/info'
 answer = requests.get(currency_url)
 currencies = answer.json()
+WS_URL = 'wss://exmarkets.com/ws'
 list_currencies_id = list()
 list_currencies_name = list()
-WS_URL = 'wss://exmarkets.com/ws'
 
 
 for element in currencies["markets"]:
