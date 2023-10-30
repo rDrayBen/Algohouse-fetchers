@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://api.orangex.com/ws/api/v1';
@@ -69,7 +70,9 @@ Number.prototype.noExponents = function() {
 function formRequest(){
     currencies.forEach((pair)=>{
         request.push(`trades.${pair}.raw`);
-        request.push(`book.${pair}.raw`);
+        if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+            request.push(`book.${pair}.raw`);
+        }
     })
 }
 
@@ -214,9 +217,10 @@ async function Connect(){
 
 Metadata();
 formRequest();
-for(let pair of currencies){
-    manageOrderbook(pair);
-    await new Promise((resolve) => setTimeout(resolve, 50));
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    for(let pair of currencies){
+        manageOrderbook(pair);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
 }
 Connect();
-
