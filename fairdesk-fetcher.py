@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://www.fairdesk.com/user/v1/public/spot/settings/product'
 answer = requests.get(currency_url)
@@ -87,13 +88,14 @@ async def main():
 					]
 				}))
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"method": "SUBSCRIBE",
-					"params": [
-						f"{list_currencies[i]}@spotDepth100"
-					]
-				}))
+				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"method": "SUBSCRIBE",
+						"params": [
+							f"{list_currencies[i]}@spotDepth100"
+						]
+					}))
 
 			while True:
 				data = await ws.recv()

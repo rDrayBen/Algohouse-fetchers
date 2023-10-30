@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://quote.bydfi.in/wsquote';
@@ -149,9 +150,11 @@ async function Connect(pair){
             if(dataJSON['data'][0] === '0' || dataJSON['data'][0] === '1' && dataJSON['data'].length > 3){
                 getTrades(dataJSON);
             }else{
-                dataJSON = JSON.parse(dataJSON['data']);
-                if('bids' in dataJSON && 'asks' in dataJSON){
-                    getOrders(dataJSON, true);
+                if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                    dataJSON = JSON.parse(dataJSON['data']);
+                    if('bids' in dataJSON && 'asks' in dataJSON){
+                        getOrders(dataJSON, true);
+                    }
                 }
             }
         }catch(e){
@@ -183,9 +186,12 @@ async function Connect(pair){
 
 
 Metadata();
-for(let pair of currencies){
-    manageOrderbook(pair);
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    for(let pair of currencies){
+        manageOrderbook(pair);
+    }
 }
+
 
 // Connect();
 var connection = [];

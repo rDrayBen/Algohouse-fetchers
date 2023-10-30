@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.toobit.com/api/v1/exchangeInfo'
@@ -89,22 +90,15 @@ async def subscribe(ws):
                 "binary": False
             }
         }))
-        # await ws.send(json.dumps({
-        #   "symbol": f"{symbol}",
-        #   "topic": "depth",
-        #   "event": "sub",
-        #   "params": {
-        #     "binary": False
-        #   }
-        # }))
-        await ws.send(json.dumps({
-            "symbol": f"{symbol}",
-            "topic": "diffDepth",
-            "event": "sub",
-            "params": {
-                "binary": False
-            }
-        }))
+        if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+            await ws.send(json.dumps({
+                "symbol": f"{symbol}",
+                "topic": "diffDepth",
+                "event": "sub",
+                "params": {
+                    "binary": False
+                }
+            }))
 
 
 async def main():
@@ -124,10 +118,10 @@ async def main():
                     dataJSON = json.loads(data)
                     # check if received data is about trades
                     if 'topic' in dataJSON:
-                        if dataJSON['topic'] == 'trade' and len(dataJSON['data']) < 60:
+                        if dataJSON['topic'] == 'trade' and not dataJSON['f']:
                             get_trades(dataJSON)
                         # skip history trade data
-                        elif dataJSON['topic'] == 'trade' and len(dataJSON['data']) == 60:
+                        elif dataJSON['topic'] == 'trade' and dataJSON['f']:
                             pass
                         # check if received data is about updates on order book
                         elif dataJSON['topic'] == 'diffDepth' and not dataJSON['f']:

@@ -1,13 +1,11 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import zlib from 'zlib';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://openapi.digifinex.com/ws/v1/';
 const restUrl = "https://openapi.digifinex.com/v3/margin/symbols";
-
-
-
 
 
 const response = await fetch(restUrl);
@@ -214,5 +212,8 @@ function Connect2(){
 Metadata();
 
 Connect1();
-Connect2();
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    Connect2();
+}
+
 

@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 
 // define the websocket and REST URLs
@@ -237,10 +238,13 @@ async function ConnectOrders(pair){
 
 Metadata();
 ConnectTrades();
-var connections = [];
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    var connections = [];
 
-for(let pair of currencies){
-    connections.push(ConnectOrders(pair));
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    for(let pair of currencies){
+        connections.push(ConnectOrders(pair));
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
 }
+
 

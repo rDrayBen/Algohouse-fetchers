@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.ataix.com/api/symbols'
 answer = requests.get(currency_url)
@@ -15,10 +16,40 @@ for elem in currencies["result"]:
 	list_currencies.append(elem["symbol"])
 
 
+async def subscribe(ws, symbol):
+	id1 = 1
+	id2 = 1000
+	# create the subscription for trades
+	await ws.send(json.dumps({
+		"method": "subscribeTrades",
+		"params": {
+			"symbol": f"{symbol}",
+			"limit": 100
+		},
+		"id": id1
+	}))
+
+	id1 += 1
+
+	await asyncio.sleep(0.01)
+	if os.getenv("SKIP_ORDERBOOKS") == None:
+		# create the subscription for full orderbooks and updates
+		await ws.send(json.dumps({
+			"method": "subscribeBook",
+			"params": {
+				"symbol": f"{symbol}"
+			},
+			"id": id2
+		}))
+
+		id2 += 1
+
+	await asyncio.sleep(300)
+
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in currencies["result"]:
-		pair_data = '@MD ' + pair["base"] + '-' + pair["quote"] + ' spot ' + \
+		pair_data = '@MD ' + pair["base"] + '/' + pair["quote"] + ' spot ' + \
 					pair["base"] + ' ' + pair["quote"] + \
 					' ' + str(pair["pricePrecision"]) + ' 1 1 0 0'
 
@@ -61,73 +92,61 @@ def get_order_books(var, update):
 			print(answer + " R")
 
 
-async def heartbeat(ws):
-	while True:
-		await ws.send(json.dumps({
-			"type": "ping"
-		}))
-		await asyncio.sleep(5)
-
-
-async def main():
+async def socket(symbol):
 	# create connection with server via base ws url
-	async for ws in websockets.connect(WS_URL, ping_interval=None):
+	async for ws in websockets.connect(WS_URL):
 		try:
-			# create task to keep connection alive
-			pong = asyncio.create_task(heartbeat(ws))
 
-			# create task to get metadata about each pair of symbols
-			meta_data = asyncio.create_task(metadata())
+			subscription = asyncio.create_task(subscribe(ws, symbol))
 
-			for i in range(len(list_currencies)):
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"method": "subscribeTrades",
-					"params": {
-						"symbol": f"{list_currencies[i]}",
-						"limit": 100
-					},
-					"id": 1
-				}))
+			async for data in ws:
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"method": "subscribeBook",
-					"params": {
-						"symbol": f"{list_currencies[i]}"
-					},
-					"id": 1
-				}))
+				try:
+					dataJSON = json.loads(data)
 
-			while True:
-				data = await ws.recv()
-
-				dataJSON = json.loads(data)
-
-				if "method" in dataJSON:
-
-					try:
-
-						# if received data is about trades
-						if dataJSON['method'] == 'newTrade':
-							get_trades(dataJSON)
-
-						# if received data is about updates
-						if dataJSON['method'] == 'bookUpdate':
-							get_order_books(dataJSON, update=True)
-
-						# if received data is about orderbooks
-						if dataJSON['method'] == 'snapshotBook':
-							get_order_books(dataJSON, update=False)
-
-						else:
+					if 'error' in dataJSON and 'code' in dataJSON['error'] and dataJSON['error'][
+						'code'] == 552:
 							pass
+					else:
 
-					except Exception as ex:
-						print(f"Exception {ex} occurred")
+						if "method" in dataJSON:
+
+							# if received data is about trades
+							if dataJSON['method'] == 'newTrade':
+								get_trades(dataJSON)
+
+							# if received data is about updates
+							if dataJSON['method'] == 'bookUpdate':
+								get_order_books(dataJSON, update=True)
+
+							# if received data is about orderbooks
+							if dataJSON['method'] == 'snapshotBook':
+								get_order_books(dataJSON, update=False)
+
+							else:
+								pass
+
+				except Exception as ex:
+					print(f"Exception {ex} occurred")
 
 		except Exception as conn_ex:
 			print(f"Connection exception {conn_ex} occurred")
+
+
+async def handler():
+	meta_data = asyncio.create_task(metadata())
+	tasks = []
+	for symbol in list_currencies:
+		tasks.append(asyncio.create_task(socket(symbol)))
+		await asyncio.sleep(0.1)
+
+	await asyncio.wait(tasks)
+
+
+async def main():
+	while True:
+		await handler()
+		await asyncio.sleep(300)
 
 
 asyncio.run(main())
