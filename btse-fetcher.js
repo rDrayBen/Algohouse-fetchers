@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const tradeWsUrl = 'wss://ws.btse.com/ws/spot';
@@ -235,4 +236,7 @@ function Connect2(){
 Metadata();
 
 Connect1();
-Connect2();
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    Connect2();
+}
+

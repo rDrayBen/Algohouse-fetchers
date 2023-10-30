@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://www.biconomy.com/ws';
@@ -251,8 +252,11 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-var wsArr = [];
-for(let i = 0; i < currencies.length; i++){
-    wsArr.push(Connect2(i));
-    await sleep(500);
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    var wsArr = [];
+    for(let i = 0; i < currencies.length; i++){
+        wsArr.push(Connect2(i));
+        await sleep(500);
+    }
 }
+

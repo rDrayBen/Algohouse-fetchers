@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.bitopro.com/v3/provisioning/trading-pairs'
 answer = requests.get(currency_url)
@@ -83,13 +84,13 @@ async def main():
                     "pair": f"{list_currencies[i]}",
                     "action": "+"
 				}))
-
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"stream": "TRADE",
-                    "pair": f"{list_currencies[i]}",
-                    "action": "+"
-				}))
+				if (os.getenv("SKIP_ORDERBOOKS") == None):
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"stream": "TRADE",
+                    	"pair": f"{list_currencies[i]}",
+                    	"action": "+"
+					}))
 
 			while True:
 				data = await ws.recv()

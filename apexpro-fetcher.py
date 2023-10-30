@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://pro.apex.exchange/api/v1/symbols'
 answer = requests.get(currency_url)
@@ -91,11 +92,12 @@ async def main():
 					]
 				}))
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"op":"subscribe",
-					"args":[f"orderBook200.H.{list_currencies[i]}"]
-				}))
+				if os.getenv("SKIP_ORDERBOOKS") == None:
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"op":"subscribe",
+						"args":[f"orderBook200.H.{list_currencies[i]}"]
+					}))
 
 			while True:
 				data = await ws.recv()

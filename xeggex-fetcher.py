@@ -3,12 +3,13 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://xeggex.com/api/v2/markets'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://ws.xeggex.com'
+WS_URL = 'wss://api.xeggex.com'
 
 for element in currencies:
 	if element["type"] == "spot":
@@ -91,14 +92,14 @@ async def main():
 					},
 					"id": 123
 				}))
-
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"method": "subscribeTrades",
-					"params": {
-						"symbol": f"{list_currencies[i]}"
-					}
-				}))
+				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"method": "subscribeTrades",
+						"params": {
+							"symbol": f"{list_currencies[i]}"
+						}
+					}))
 
 			while True:
 				data = await ws.recv()

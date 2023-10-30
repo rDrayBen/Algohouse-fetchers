@@ -59,7 +59,7 @@ def print_trades(data):
     try:
         for i in data['data']:
             print('!', round(time.time() * 1000),
-                  i['marketCode'].upper(), i['side'].upper(), str(format_decimal(i['quantity'])), str(format_decimal(i['price'])))
+                  i['marketCode'].upper(), i['side'].upper(), str(format_decimal(i['price'])), str(format_decimal(i['quantity'])))
     except:
         pass
 

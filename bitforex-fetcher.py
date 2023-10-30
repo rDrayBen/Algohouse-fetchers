@@ -3,18 +3,21 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.bitforex.com/api/v1/market/symbols'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
+check_activity = {}
 # base web socket url
 WS_URL = 'wss://www.bitforex.com/mkapi/coinGroup1/ws'
 
 # fill the list with all available symbol pairs on exchange
 for pair_s in currencies['data']:
     list_currencies.append(pair_s['symbol'])
+    check_activity[pair_s['symbol']] = False
 
 
 async def metadata():
@@ -33,6 +36,7 @@ def get_unix_time():
 
 # function to format the trades output
 def get_trades(message):
+    check_activity[message['param']['businessType']] = True
     for elem in message['data']:
         print('!', get_unix_time(), message['param']['businessType'].split('-')[2].upper() \
               + '-' + message['param']['businessType'].split('-')[1].upper(),
@@ -42,6 +46,7 @@ def get_trades(message):
 
 # function to format order books and deltas(order book updates) format
 def get_order_books_and_deltas(message, update):
+    check_activity[message['param']['businessType']] = True
     # check if bids array is not Null
     if 'bids' in message['data'] and message['data']['bids']:
         order_answer = '$ ' + str(get_unix_time()) + ' ' + message['param']['businessType'].split('-')[2].upper() \
@@ -71,32 +76,44 @@ def get_order_books_and_deltas(message, update):
 
 async def heartbeat(ws):
     while True:
-        await ws.send(json.dumps({
-            "event": "ping"
-        }))
+        await ws.send(
+            "ping_p"
+        )
+        print('Ping sent')
         await asyncio.sleep(5)
 
 
 async def subscribe(ws):
-    # subscribe for listed topics
-    for symbol in list_currencies:
-        # subscribe to all trades
-        await ws.send(json.dumps([
-            {"type": "subHq",
-             "event": "trade",
-             "param": {"businessType": symbol,
-                       "size": 1}
-             },
-            {"type": "subHq",
-             "event": "depth10",
-             "param": {"businessType": symbol,
-                       "dType": 1}},
-            {"type": "subHq",
-             "event": "depth10",
-             "param": {"businessType": symbol,
-                       "dType": 0}}
-        ]))
-        await asyncio.sleep(0.1)
+    while True:
+        # subscribe for listed topics
+        for key, value in check_activity.copy().items():
+            if not value:
+                # subscribe to all trades
+                await ws.send(json.dumps([
+                    {"type": "subHq",
+                     "event": "trade",
+                     "param": {"businessType": key,
+                               "size": 1}
+                     }
+                ]))
+                await asyncio.sleep(0.1)
+                if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
+                    await ws.send(json.dumps([
+                        {"type": "subHq",
+                         "event": "depth10",
+                         "param": {"businessType": key,
+                                   "dType": 1}},
+                        {"type": "subHq",
+                         "event": "depth10",
+                         "param": {"businessType": key,
+                                   "dType": 0}}
+                    ]))
+                    await asyncio.sleep(0.1)
+        # print(check_activity)
+        for symbol in list(check_activity):
+            check_activity[symbol] = False
+        # print(check_activity)
+        await asyncio.sleep(1800)
 
 
 async def main():
@@ -109,17 +126,14 @@ async def main():
             # print metadata about each pair symbols
             meta_data = asyncio.create_task(metadata())
             while True:
-                # receiving data from server
-                data = await ws.recv()
-                # change format of received data to json format
-                dataJSON = json.loads(data)
+
                 try:
+                    # receiving data from server
+                    data = await ws.recv()
+                    # change format of received data to json format
+                    dataJSON = json.loads(data)
                     if 'event' in dataJSON and 'data' in dataJSON:
                         # check if received data is about trades
-                        # I ran an experiment, where i measured the amount of trades in incoming data and as I saw,
-                        # we either receive a full snapshot of trade history, which consists of 20+ trades
-                        # or we receive a message with only 1 trade, so I made an if statement to check whether incoming
-                        # data is trade history or most recent trade, by checking the amount of trades in message
                         if dataJSON['event'] == 'trade' and len(dataJSON['data']) < 10:
                             get_trades(dataJSON)
                         # check if received data is about updates on order book

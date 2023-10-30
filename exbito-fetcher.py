@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.exbito.com/apiv2/markets'
 answer = requests.get(currency_url)
@@ -90,15 +91,16 @@ async def main():
 					}
 				}))
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"action": "subscribe",
-					"channel": "market.depth",
-					"params": {
-						"market": f"{list_currencies[i]}",
-						"interval": "0"
-					}
-				}))
+				if (os.getenv("SKIP_ORDERBOOKS") == None):
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"action": "subscribe",
+						"channel": "market.depth",
+						"params": {
+							"market": f"{list_currencies[i]}",
+							"interval": "0"
+						}
+					}))
 
 			while True:
 				data = await ws.recv()

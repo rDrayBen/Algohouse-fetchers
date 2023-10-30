@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://www.okcoin.com/api/v5/public/instruments?instType=SPOT'
 answer = requests.get(currency_url)
@@ -30,9 +31,10 @@ def get_unix_time():
 	return round(time.time() * 1000)
 
 
-def get_trades(var):
+def get_trades(var, start_time):
 	trade_data = var
-	if 'data' in trade_data:
+	elapsed_time = time.time() - start_time
+	if 'data' in trade_data and elapsed_time > 2:
 		for elem in trade_data["data"]:
 			print('!', get_unix_time(), elem['instId'],
 				  "B" if elem["side"] == "buy" else "S", elem['px'],
@@ -75,6 +77,8 @@ async def main():
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
+			start_time = time.time()
+
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
@@ -92,17 +96,17 @@ async def main():
 						}
 					]
 				}))
-
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"op": "subscribe",
-					"args": [
-						{
-							"channel": "books",
-							"instId": f"{list_currencies[i]}"
-						}
-					]
-				}))
+				if (os.getenv("SKIP_ORDERBOOKS") == None):
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"op": "subscribe",
+						"args": [
+							{
+								"channel": "books",
+								"instId": f"{list_currencies[i]}"
+							}
+						]
+					}))
 
 			while True:
 				data = await ws.recv()
@@ -115,7 +119,7 @@ async def main():
 
 						# if received data is about trades
 						if dataJSON['arg']['channel'] == 'trades':
-							get_trades(dataJSON)
+							get_trades(dataJSON, start_time)
 
 						# if received data is about updates
 						elif dataJSON['arg']['channel'] == 'books' and dataJSON["action"] == "update":

@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://zaif.jp/api/v2/orderbook/info'
 answer = requests.get(currency_url)
@@ -15,10 +16,10 @@ for key,value in currencies["currency_configs"].items():
 
 # get metadata about each pair of symbols
 async def metadata():
-	for pair in currencies:
-		pair_data = '@MD ' + pair["baseCurrency"].upper() + '-' + pair["quoteCurrency"].upper() + ' spot ' + \
-					pair["baseCurrency"].upper() + ' ' + pair["quoteCurrency"].upper() + \
-					' ' + str(str(pair['tickSize'])[::-1].find('.')) + ' 1 1 0 0'
+	for key,value in currencies["currency_configs"].items():
+		pair_data = '@MD ' + value["currency_pair"] + ' spot ' + \
+					value["item"].lower() + ' ' + value["aux"].lower() + \
+					' ' + str(str(value['aux_unit_min'])[::-1].find('.')) + ' 1 1 0 0'
 
 		print(pair_data, flush=True)
 

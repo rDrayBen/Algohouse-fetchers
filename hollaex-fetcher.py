@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.hollaex.com/v2/constants'
 answer = requests.get(currency_url)
@@ -93,9 +94,10 @@ async def main():
 						if dataJSON["topic"] == "trade" and dataJSON["action"] == "insert":
 							get_trades(dataJSON)
 
-						# if received data is about updates and full orderbooks
-						if dataJSON["topic"] == "orderbook" and dataJSON["action"] == "partial":
-							get_order_books(dataJSON, update=False)
+						if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+							# if received data is about updates and full orderbooks
+							if dataJSON["topic"] == "orderbook" and dataJSON["action"] == "partial":
+								get_order_books(dataJSON, update=False)
 
 						else:
 							pass
