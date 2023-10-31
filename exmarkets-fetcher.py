@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import sys
 
 
 currency_url = 'https://exmarkets.com/api/v1/general/info'
@@ -16,6 +17,11 @@ list_currencies_name = list()
 for element in currencies["markets"]:
 	list_currencies_id.append(element["id"])
 	list_currencies_name.append(element["name"])
+
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies_name)):
+	symbol_count_for_5_minutes[list_currencies_name[i]] = 0
 
 async def subscribe(ws, symbol):
 
@@ -55,6 +61,7 @@ def get_trades(var):
 		print('!', get_unix_time(), trade_data["data"]["market"].upper(),
 				"S" if trade_data["data"]["side"] == "SELL" else "B", str(format(trade_data["data"]['price'], '.5f')),
 				str(trade_data["data"]['amount']), flush=True)
+		symbol_count_for_5_minutes[trade_data["data"]["market"].upper()] += 1
 
 
 def get_order_books(var):
@@ -85,6 +92,16 @@ async def socket(symbol):
 
 				try:
 					dataJSON = json.loads(data)
+
+					if abs(time.time() - tradestats_time) >= 300:
+						data1 = "# LOG:CAT=trades_stats:MSG= "
+						data2 = " ".join(
+							key + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
+						sys.stdout.write(data1 + data2)
+						sys.stdout.write("\n")
+						for key in symbol_count_for_5_minutes:
+							symbol_count_for_5_minutes[key] = 0
+						tradestats_time = time.time()
 
 					# if received data is about trades
 					if dataJSON['type'] == 'market-trade':
