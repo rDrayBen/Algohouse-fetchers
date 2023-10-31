@@ -109,7 +109,7 @@ async def socket(symbol):
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 			# create task to subscribe trades and orderbooks
-			subscription = asyncio.create_task(subscribe(ws,symbol))
+			subscription = asyncio.create_task(subscribe(ws, symbol))
 
 			async for data in ws:
 
