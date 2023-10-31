@@ -1,10 +1,11 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import zlib from 'zlib';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://ws.dcoinpro.com/kline-api/ws';
-const restUrl = "https://openapi.dcoinpro.com/open/api/common/symbols";
+const restUrl = "https://openapi.dcoin.com/open/api/common/symbols";
 
 
 const response = await fetch(restUrl);
@@ -109,31 +110,34 @@ function Connect1(){
                     }
                 }
             ))
-            // sub for snapshot
-            ws1.send(JSON.stringify(
-                {
-                    "event":"sub",
-                    "params":{
-                        "channel":`market_${item}_depth_step0`,
-                        "cb_id":"",
-                        "asks":150,
-                        "bids":150
+            if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                // sub for snapshot
+                ws1.send(JSON.stringify(
+                    {
+                        "event":"sub",
+                        "params":{
+                            "channel":`market_${item}_depth_step0`,
+                            "cb_id":"",
+                            "asks":150,
+                            "bids":150
+                        }
                     }
-                }
-            ))
-            // sub for delta
-            ws1.send(JSON.stringify(
-                {
-                    "event":"sub",
-                    "params":{
-                        "channel":`market_${item}_depth_step2`,
-                        "cb_id":"",
-                        "asks":10,
-                        "bids":10
+                ))
+                // sub for delta
+                ws1.send(JSON.stringify(
+                    {
+                        "event":"sub",
+                        "params":{
+                            "channel":`market_${item}_depth_step2`,
+                            "cb_id":"",
+                            "asks":10,
+                            "bids":10
+                        }
                     }
-                }
-                
-            ))
+                    
+                ))
+            }
+            
         })
         
             

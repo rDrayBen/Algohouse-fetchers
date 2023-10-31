@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api-matic.idex.io/v1/markets'
 answer = requests.get(currency_url)
@@ -35,18 +36,19 @@ async def subscribe(ws, symbol):
 
 	await asyncio.sleep(0.01)
 
-	# create the subscription for full orderbooks and updates
-	await ws.send(json.dumps({
-		"method": "subscribe",
-		"subscriptions":
-			[{
-				"name": "l2orderbook",
-				"markets": [
-					f"{symbol}"
-				]}]
-	}))
+	if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+		# create the subscription for full orderbooks and updates
+		await ws.send(json.dumps({
+			"method": "subscribe",
+			"subscriptions":
+				[{
+					"name": "l2orderbook",
+					"markets": [
+						f"{symbol}"
+					]}]
+		}))
 
-	id2 += 1
+		id2 += 1
 
 	await asyncio.sleep(300)
 
@@ -109,7 +111,7 @@ async def socket(symbol):
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 			# create task to subscribe trades and orderbooks
-			subscription = asyncio.create_task(subscribe(ws,symbol))
+			subscription = asyncio.create_task(subscribe(ws, symbol))
 
 			async for data in ws:
 

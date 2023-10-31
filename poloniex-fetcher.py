@@ -3,20 +3,27 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.poloniex.com/markets'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
+check_activity = {}
+trades_count_5min = {}
+orders_count_5min = {}
 WS_URL = 'wss://ws.poloniex.com/ws/public'
 for currency in currencies:
     if currency['state'] == 'NORMAL':
         list_currencies.append(currency['symbol'])
+        check_activity[currency['symbol']] = False
 
 
 async def metadata():
     for pair in currencies:
         if pair['state'] == 'NORMAL':
+            trades_count_5min[pair['baseCurrencyName'] + '-' + pair['quoteCurrencyName']] = 0
+            orders_count_5min[pair['baseCurrencyName'] + '-' + pair['quoteCurrencyName']] = 0
             pair_data = '@MD ' + pair['baseCurrencyName'] + '-' + pair['quoteCurrencyName'] + ' spot ' + \
                         pair['baseCurrencyName'] + ' ' + pair['quoteCurrencyName'] + ' ' + \
                         str(pair['symbolTradeLimit']['priceScale']) + ' 1 1 0 0'
@@ -29,50 +36,41 @@ def get_unix_time():
 
 
 def get_trades(message):
-    trade_data = message
-    if 'data' in trade_data:
-        for elem in trade_data['data']:
+    if 'data' in message:
+        for elem in message['data']:
+            check_activity[elem['symbol']] = True
+            trades_count_5min[elem['symbol'].split('_')[0] + '-' + elem['symbol'].split('_')[1]] += 1
             print('!', get_unix_time(), elem['symbol'].split('_')[0] + '-' + elem['symbol'].split('_')[1],
                   elem['takerSide'][0].upper(), elem['price'],
-                  float(elem['amount']) + float(elem['quantity']), flush=True)
+                  float(elem['quantity']), flush=True)
 
 
 def get_order_books_and_deltas(message, update):
-    if 'action' in message and message['action'] == 'snapshot':
-        return
-    elif 'action' in message and message['action'] == 'update':
-        update = True
-    if update:
-        if 'data' in message:
-            if 'bids' in message['data'][0] and message['data'][0]['bids']:
-                order_answer = '$ ' + str(get_unix_time()) + ' ' + message['data'][0]['symbol'].split('_')[0] + '-' + \
-                               message['data'][0]['symbol'].split('_')[1] + ' B '
-                pq = '|'.join(f"{elem[1]}@{elem[0]}"
-                              for elem in message['data'][0]['bids'])
-                print(order_answer + pq, flush=True)
+    check_activity[message['data'][0]['symbol']] = True
+    orders_count_5min[
+        message['data'][0]['symbol'].split('_')[0] + '-' + message['data'][0]['symbol'].split('_')[1]
+    ] += len(message['data'][0]['bids']) + len(message['data'][0]['asks'])
+    if message['data'][0]['bids'] and len(message['data'][0]['bids']) > 0:
+        order_answer = '$ ' + str(get_unix_time()) + ' ' + message['data'][0]['symbol'].split('_')[0] + '-' + \
+                       message['data'][0]['symbol'].split('_')[1] + ' B '
+        pq = '|'.join(f"{elem[1]}@{elem[0]}"
+                      for elem in message['data'][0]['bids'])
+        # check if the input data is full order book or just update
+        if update:
+            print(order_answer + pq, flush=True)
+        elif not update:
+            print(order_answer + pq + ' R', flush=True)
 
-            if 'asks' in message['data'][0] and message['data'][0]['asks']:
-                order_answer = '$ ' + str(get_unix_time()) + ' ' + message['data'][0]['symbol'].split('_')[0] + '-' + \
-                               message['data'][0]['symbol'].split('_')[1] + ' S '
-                pq = '|'.join(f"{elem[1]}@{elem[0]}"
-                              for elem in message['data'][0]['asks'])
-                print(order_answer + pq, flush=True)
-    else:
-        if 'data' in message:
-            for i in range(len(message['data'])):
-                if 'bids' in message['data'][i] and message['data'][i]['bids']:
-                    order_answer = '$ ' + str(get_unix_time()) + ' ' + message['data'][i]['symbol'].split('_')[0] + '-' + \
-                                   message['data'][i]['symbol'].split('_')[1] + ' B '
-                    pq = '|'.join(f"{elem[1]}@{elem[0]}"
-                                  for elem in message['data'][i]['bids'])
-                    print(order_answer + pq + ' R', flush=True)
-
-                if 'asks' in message['data'][i] and message['data'][i]['asks']:
-                    order_answer = '$ ' + str(get_unix_time()) + ' ' + message['data'][0]['symbol'].split('_')[0] + '-' + \
-                                   message['data'][i]['symbol'].split('_')[1] + ' S '
-                    pq = '|'.join(f"{elem[1]}@{elem[0]}"
-                                  for elem in message['data'][i]['asks'])
-                    print(order_answer + pq + ' R', flush=True)
+    if message['data'][0]['asks'] and len(message['data'][0]['asks']) > 0:
+        order_answer = '$ ' + str(get_unix_time()) + ' ' + message['data'][0]['symbol'].split('_')[0] + '-' + \
+                       message['data'][0]['symbol'].split('_')[1] + ' B '
+        pq = '|'.join(f"{elem[1]}@{elem[0]}"
+                      for elem in message['data'][0]['asks'])
+        # check if the input data is full order book or just update
+        if update:
+            print(order_answer + pq, flush=True)
+        elif not update:
+            print(order_answer + pq + ' R', flush=True)
 
 
 async def heartbeat(ws):
@@ -80,28 +78,51 @@ async def heartbeat(ws):
         await ws.send(json.dumps({
                     "event": "ping"
                 }))
-        await asyncio.sleep(5)
+        await asyncio.sleep(20)
 
 
 async def subscribe(ws):
-    await ws.send(json.dumps({
-        "event": "subscribe",
-        "channel": ["trades"],
-        "symbols": ["all"]
-    }))
-
-    for symbol in list_currencies:
+    while True:
+        resub_list_books = [key.lower() for key, value in check_activity.items() if value == False]
+        resub_list_trades = [key for key, value in check_activity.items() if value == False]
         await ws.send(json.dumps({
             "event": "subscribe",
-            "channel": ["book"],
-            "symbols": [f"{symbol.split('_')[0].lower()}_{symbol.split('_')[1].lower()}"],
-            "depth": 20
+            "channel": ["trades"],
+            "symbols": resub_list_trades
         }))
-        # await ws.send(json.dumps({
-        #     "event": "subscribe",
-        #     "channel": ["book_lv2"],
-        #     "symbols": [f"{symbol.split('_')[0].lower()}_{symbol.split('_')[1].lower()}"]
-        # }))
+        await asyncio.sleep(1.01) # A single IP is limited to 2000 simultaneous connections on each of the public and private channels.
+        if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
+            await ws.send(json.dumps({
+                "event": "subscribe",
+                "channel": ["book_lv2"],
+                "symbols": resub_list_books,
+                "depth": 20
+            }))
+        # print(check_activity)
+        for symbol in list(check_activity):
+            check_activity[symbol] = False
+        # print(check_activity)
+        await asyncio.sleep(3000)
+
+
+async def stats():
+    while True:
+        stat_line = '# LOG:CAT=trades_stats:MSG= '
+        for symbol, amount in trades_count_5min.items():
+            if amount != 0:
+                stat_line += f"{symbol}:{amount} "
+            trades_count_5min[symbol] = 0
+        if stat_line != '# LOG:CAT=trades_stats:MSG= ':
+            print(stat_line)
+
+        stat_line = '# LOG:CAT=orderbook_stats:MSG= '
+        for symbol, amount in orders_count_5min.items():
+            if amount != 0:
+                stat_line += f"{symbol}:{amount} "
+            orders_count_5min[symbol] = 0
+        if stat_line != '# LOG:CAT=orderbook_stats:MSG= ':
+            print(stat_line)
+        await asyncio.sleep(60)
 
 
 async def main():
@@ -113,6 +134,8 @@ async def main():
             pong = asyncio.create_task(heartbeat(ws))
             # print metadata about each pair symbols
             meta_data = asyncio.create_task(metadata())
+            # print stats for trades and orders
+            statistics = asyncio.create_task(stats())
             while True:
                 data = await ws.recv()
                 try:
@@ -120,16 +143,17 @@ async def main():
                     if 'channel' in dataJSON:
                         if dataJSON['channel'] == "trades":
                             get_trades(dataJSON)
-                        elif dataJSON['channel'] == "book_lv2":
+                        elif dataJSON['channel'] == "book_lv2" and dataJSON['action'] == 'update':
                             get_order_books_and_deltas(dataJSON, update=True)
-                        elif dataJSON['channel'] == "book":
+                        elif dataJSON['channel'] == "book_lv2" and dataJSON['action'] == 'snapshot':
                             get_order_books_and_deltas(dataJSON, update=False)
                         else:
                             print(dataJSON)
                     else:
                         print(dataJSON)
                 except Exception as e:
-                    print(f"Exception {e} occurred")
+                    # print(f"Exception {e} occurred", dataJSON)
+                    pass
         except Exception as conn_e:
             print(f"WARNING: connection exception {conn_e} occurred")
 

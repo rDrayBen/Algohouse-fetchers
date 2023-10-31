@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://ws-public.blofin.com/websocket';
@@ -123,20 +124,21 @@ async function Connect(){
                     "id": 5
                 }
             ));
-            ws.send(JSON.stringify(
-                {
-                    "op": "SUBSCRIBE",
-                    "args": [
-                        {
-                            "channel": "DEPTH",
-                            "symbol": pair,
-                            "update_speed": "100ms"
-                        }
-                    ],
-                    "id": 1
-                }
-            ));
-            
+            if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                ws.send(JSON.stringify(
+                    {
+                        "op": "SUBSCRIBE",
+                        "args": [
+                            {
+                                "channel": "DEPTH",
+                                "symbol": pair,
+                                "update_speed": "100ms"
+                            }
+                        ],
+                        "id": 1
+                    }
+                ));
+            }
         });
     };
 

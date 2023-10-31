@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://tradeogre.com:8443/';
@@ -116,10 +117,16 @@ async function Connect(pair){
                 getTrades(dataJSON, pair);
             }
             else if(dataJSON.a === 'orders'){
-                getOrders(dataJSON, false, pair);
+                if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                    getOrders(dataJSON, false, pair);
+                }
+                
             }
             else if(dataJSON.a === 'add' || dataJSON.a === 'sub'){
-                getOrders(dataJSON, true, pair);
+                if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                    getOrders(dataJSON, true, pair);
+                }
+                
             }
             else {
                 console.log(dataJSON);

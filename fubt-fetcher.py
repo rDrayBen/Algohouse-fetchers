@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import sys
 
 currency_url = 'https://www.fubthk.com/api/v2/trade/public/markets?limit=1000'
 answer = requests.get(currency_url)
@@ -13,6 +14,10 @@ WS_URL = 'wss://www.fubthk.com/api/v2/ranger/public/?stream=global.tickers'
 for element in currencies:
 	list_currencies.append(element["id"])
 
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 # get metadata about each pair of symbols
 async def metadata():
@@ -37,29 +42,8 @@ def get_trades(var, currency):
 			print('!', get_unix_time(), currency,
 				  "B" if elem["taker_type"] == "buy" else "S", elem['price'],
 				  elem["amount"], flush=True)
+			symbol_count_for_5_minutes[currency] += 1
 
-
-# def get_order_books(var, update):
-# 	order_data = var
-# 	if 'ask' in order_data['params'] and len(order_data["params"]["ask"]) != 0:
-# 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['params']['symbol'] + ' S '
-# 		pq = "|".join(el["size"] + "@" + el["price"] for el in order_data["params"]["ask"])
-# 		answer = order_answer + pq
-# 		# checking if the input data is full orderbook or just update
-# 		if (update == True):
-# 			print(answer)
-# 		else:
-# 			print(answer + " R")
-#
-# 	if 'bid' in order_data['params'] and len(order_data["params"]["bid"]) != 0:
-# 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['params']['symbol'] + ' B '
-# 		pq = "|".join(el["size"] + "@" + el["price"] for el in order_data["params"]["bid"])
-# 		answer = order_answer + pq
-# 		# checking if the input data is full orderbook or just update
-# 		if (update == True):
-# 			print(answer)
-# 		else:
-# 			print(answer + " R")
 
 
 async def heartbeat(ws):
@@ -74,6 +58,10 @@ async def main():
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
+
+			start_time = time.time()
+			tradestats_time = start_time
+
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
@@ -94,6 +82,15 @@ async def main():
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
+
+				if abs(time.time() - tradestats_time) >= 300:
+					data1 = "# LOG:CAT=trades_stats:MSG= "
+					data2 = " ".join(key + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
+					sys.stdout.write(data1 + data2)
+					sys.stdout.write("\n")
+					for key in symbol_count_for_5_minutes:
+						symbol_count_for_5_minutes[key] = 0
+					tradestats_time = time.time()
 
 				for i in range(len(list_currencies)):
 

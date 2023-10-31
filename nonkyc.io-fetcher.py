@@ -3,6 +3,8 @@ import requests
 import websockets
 import time
 import asyncio
+import os
+import sys
 
 currency_url = 'https://nonkyc.io/api/v2/markets'
 answer = requests.get(currency_url)
@@ -13,6 +15,11 @@ WS_URL = 'wss://ws.nonkyc.io'
 for element in currencies:
 	if element["type"] == "spot":
 		list_currencies.append(element["base"] + "/" + element["quote"])
+
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 
 # get metadata about each pair of symbols
@@ -38,6 +45,7 @@ def get_trades(var):
 			print('!', get_unix_time(), trade_data["params"]['symbol'],
 				  "B" if elem["side"] == "buy" else "S", elem['price'],
 				  elem["quantity"], flush=True)
+			symbol_count_for_5_minutes[trade_data["params"]['symbol']] += 1
 
 
 def get_order_books(var, update):
@@ -75,6 +83,10 @@ async def main():
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
+
+			start_time = time.time()
+			tradestats_time = start_time
+
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
@@ -84,26 +96,36 @@ async def main():
 			for i in range(len(list_currencies)):
 				# create the subscription for trades
 				await ws.send(json.dumps({
-					"method": "subscribeOrderbook",
-					"params": {
-						"symbol": f"{list_currencies[i]}",
-						"limit": 100
-					},
-					"id": 123
-				}))
-
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
 					"method": "subscribeTrades",
 					"params": {
 						"symbol": f"{list_currencies[i]}"
 					}
 				}))
 
+				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"method": "subscribeOrderbook",
+						"params": {
+							"symbol": f"{list_currencies[i]}",
+							"limit": 100
+						},
+						"id": 123
+					}))
+
 			while True:
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
+
+				if abs(time.time() - tradestats_time) >= 300:
+					data1 = "# LOG:CAT=trades_stats:MSG= "
+					data2 = " ".join(key + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
+					sys.stdout.write(data1 + data2)
+					sys.stdout.write("\n")
+					for key in symbol_count_for_5_minutes:
+						symbol_count_for_5_minutes[key] = 0
+					tradestats_time = time.time()
 
 				if "method" in dataJSON:
 

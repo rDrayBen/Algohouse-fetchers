@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://ws.coinfalcon.com/';
@@ -106,12 +107,14 @@ async function Connect(){
     ws.onopen = function(e) {
         // subscribe to trades and orders for all instruments
         currencies.forEach((pair)=>{
-            ws.send(JSON.stringify(
-                {
-                    "command": "subscribe",
-                    "identifier": `{\"channel\":\"OrderbookChannel\",\"market\":\"${pair}\"}`
-                }
-            ));
+            if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                ws.send(JSON.stringify(
+                    {
+                        "command": "subscribe",
+                        "identifier": `{\"channel\":\"OrderbookChannel\",\"market\":\"${pair}\"}`
+                    }
+                ));
+            }
             ws.send(JSON.stringify(
                 {
                     "command": "subscribe",
