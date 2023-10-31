@@ -109,7 +109,7 @@ async def main():
 
 				dataJSON = json.loads(data)
 
-				if abs(time.time() - tradestats_time) >= 15:
+				if abs(time.time() - tradestats_time) >= 300:
 					data1 = "# LOG:CAT=trades_stats:MSG= "
 					data2 = " ".join(key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
 					sys.stdout.write(data1 + data2)

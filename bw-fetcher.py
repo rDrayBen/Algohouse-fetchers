@@ -4,7 +4,7 @@ import websockets
 import time
 import asyncio
 import os
-import sys
+
 
 
 currency_url = 'https://api.bw6.com/data/v1/markets'
@@ -19,11 +19,6 @@ for key, value in currencies.items():
 	currency1 = parts[0]
 	currency2 = parts[1]
 	list_currencies.append(currency1+currency2)
-
-#for trades count stats
-symbol_count_for_5_minutes = {}
-for i in range(len(list_currencies)):
-	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 
 # get metadata about each pair of symbols
