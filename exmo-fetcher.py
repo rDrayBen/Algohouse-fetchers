@@ -11,6 +11,8 @@ answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 check_activity = {}
+trades_count_5min = {}
+orders_count_5min = {}
 # base web socket url
 WS_URL = 'wss://ws-api.exmo.com:443/v1/public'
 
@@ -21,6 +23,8 @@ list_currencies = list(currencies.keys())
 async def metadata():
     for pair in list_currencies:
         check_activity[pair] = False
+        trades_count_5min[pair.split('_')[0] + '-' + pair.split('_')[1]] = 0
+        orders_count_5min[pair.split('_')[0] + '-' + pair.split('_')[1]] = 0
         pair_data = '@MD ' + pair.split('_')[0] + '-' + pair.split('_')[1] + ' spot ' + \
                     pair.split('_')[0] + ' ' + pair.split('_')[1] + ' ' + str(currencies[pair]['price_precision']) \
                     + ' 1 1 0 0'
@@ -37,6 +41,7 @@ def get_unix_time():
 def get_trades(message):
     check_activity[message['topic'].split(':')[1]] = True
     coin_name = message['topic'].split(':')[1].split('_')[0] + '-' + message['topic'].split(':')[1].split('_')[1]
+    trades_count_5min[coin_name] += len(message['data'])
     if 'data' in message:
         for elem in message['data']:
             print('!', get_unix_time(), coin_name,
@@ -48,6 +53,7 @@ def get_trades(message):
 def get_order_books_and_deltas(message, update):
     check_activity[message['topic'].split(':')[1]] = True
     coin_name = message['topic'].split(':')[1].split('_')[0] + '-' + message['topic'].split(':')[1].split('_')[1]
+    orders_count_5min[coin_name] += len(message['data']['bid']) + len(message['data']['ask'])
     # check if bids array is not Null
     if 'data' in message and 'bid' in message['data'] and message['data']['bid']:
         order_answer = '$ ' + str(get_unix_time()) + ' ' + coin_name + ' B '
@@ -105,6 +111,26 @@ async def subscribe(ws):
         await asyncio.sleep(3000)
 
 
+async def stats():
+    while True:
+        stat_line = '# LOG:CAT=trades_stats:MSG= '
+        for symbol, amount in trades_count_5min.items():
+            if amount != 0:
+                stat_line += f"{symbol}:{amount} "
+            trades_count_5min[symbol] = 0
+        if stat_line != '# LOG:CAT=trades_stats:MSG= ':
+            print(stat_line)
+
+        stat_line = '# LOG:CAT=orderbook_stats:MSG= '
+        for symbol, amount in orders_count_5min.items():
+            if amount != 0:
+                stat_line += f"{symbol}:{amount} "
+            orders_count_5min[symbol] = 0
+        if stat_line != '# LOG:CAT=orderbook_stats:MSG= ':
+            print(stat_line)
+        await asyncio.sleep(300)
+
+
 async def main():
     # create connection with server via base ws url
     async for ws in websockets.connect(WS_URL, ping_interval=None):
@@ -114,6 +140,8 @@ async def main():
             sub_task = asyncio.create_task(subscribe(ws))
             # create task to keep connection alive
             pong = asyncio.create_task(heartbeat(ws))
+            # print stats for trades and orders
+            statistics = asyncio.create_task(stats())
             while True:
                 # receiving data from server
                 data = await ws.recv()
