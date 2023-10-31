@@ -145,7 +145,7 @@ async def stats():
         if stat_line != '# LOG:CAT=orderbook_stats:MSG= ':
             print(stat_line)
         print(orders_count_5min)
-        await asyncio.sleep(60)
+        await asyncio.sleep(300)
 
 
 async def main():
