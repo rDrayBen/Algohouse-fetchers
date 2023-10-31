@@ -4,6 +4,7 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 
 currency_url = 'https://www.okcoin.com/api/v5/public/instruments?instType=SPOT'
 answer = requests.get(currency_url)
@@ -13,6 +14,11 @@ WS_URL = 'wss://real.okcoin.com:8443/ws/v5/public'
 
 for element in currencies["data"]:
 	list_currencies.append(element["instId"])
+
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 
 # get metadata about each pair of symbols
@@ -39,6 +45,7 @@ def get_trades(var, start_time):
 			print('!', get_unix_time(), elem['instId'],
 				  "B" if elem["side"] == "buy" else "S", elem['px'],
 				  elem["sz"], flush=True)
+			symbol_count_for_5_minutes[elem['instId']] += 1
 
 
 def get_order_books(var, update):
@@ -78,6 +85,7 @@ async def main():
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
 			start_time = time.time()
+			tradestats_time = start_time
 
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
@@ -112,6 +120,15 @@ async def main():
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
+
+				if abs(time.time() - tradestats_time) >= 300:
+					data1 = "# LOG:CAT=trades_stats:MSG= "
+					data2 = " ".join(key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
+					sys.stdout.write(data1 + data2)
+					sys.stdout.write("\n")
+					for key in symbol_count_for_5_minutes:
+						symbol_count_for_5_minutes[key] = 0
+					tradestats_time = time.time()
 
 				if "event" not in dataJSON:
 
