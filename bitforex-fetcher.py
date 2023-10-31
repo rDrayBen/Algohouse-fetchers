@@ -135,7 +135,6 @@ async def stats():
             trades_count_5min[symbol] = 0
         if stat_line != '# LOG:CAT=trades_stats:MSG= ':
             print(stat_line)
-        print(trades_count_5min)
 
         stat_line = '# LOG:CAT=orderbook_stats:MSG= '
         for symbol, amount in orders_count_5min.items():
@@ -144,7 +143,6 @@ async def stats():
             orders_count_5min[symbol] = 0
         if stat_line != '# LOG:CAT=orderbook_stats:MSG= ':
             print(stat_line)
-        print(orders_count_5min)
         await asyncio.sleep(300)
 
 
