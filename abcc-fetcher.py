@@ -128,6 +128,8 @@ async def main():
 
 				dataJSON = json.loads(data)
 
+				print(dataJSON)
+
 				if "event" in dataJSON:
 
 					try:
