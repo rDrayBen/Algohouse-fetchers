@@ -10,6 +10,8 @@ currency_url = 'https://api.toobit.com/api/v1/exchangeInfo'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
+trades_count_5min = {}
+orders_count_5min = {}
 # base web socket url
 WS_URL = 'wss://stream.toobit.com/quote/ws/v1'
 precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 10000000000, 100000000000,
@@ -26,6 +28,8 @@ async def metadata():
         for i in range(len(precision)):
             if float(pair['quotePrecision']) * precision[i] == 1:
                 prec = i
+        trades_count_5min[pair['symbol']] = 0
+        orders_count_5min[pair['symbol']] = 0
         pair_data = '@MD ' + pair['symbol'] + ' spot ' + pair['baseAsset'] + ' ' + pair['quoteAsset'] + ' ' \
                     + str(prec) + ' 1 1 0 0'
         print(pair_data, flush=True)
@@ -39,12 +43,14 @@ def get_unix_time():
 
 # function to format the trades output
 def get_trades(message):
+    trades_count_5min[message['symbol']] += len(message['data'])
     for elem in message['data']:
-        print('!', get_unix_time(), message['symbol'],'B' if elem['m'] else 'S', elem['p'], elem['q'], flush=True)
+        print('!', get_unix_time(), message['symbol'], 'B' if elem['m'] else 'S', elem['p'], elem['q'], flush=True)
 
 
 # function to format order books and deltas(order book updates) format
 def get_order_books_and_deltas(message, update):
+    orders_count_5min[message['symbol']] += len(message['data'][0]['b']) + len(message['data'][0]['a'])
     # check if bids array is not Null
     if 'b' in message['data'][0] and message['data'][0]['b']:
         order_answer = '$ ' + str(get_unix_time()) + ' ' + message['symbol'] + ' B '
@@ -90,7 +96,7 @@ async def subscribe(ws):
                 "binary": False
             }
         }))
-        if os.getenv("SKIP_ORDERBOOKS") is None and os.getenv("SKIP_ORDERBOOKS") != '':
+        if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
             await ws.send(json.dumps({
                 "symbol": f"{symbol}",
                 "topic": "diffDepth",
@@ -99,6 +105,26 @@ async def subscribe(ws):
                     "binary": False
                 }
             }))
+
+
+async def stats():
+    while True:
+        stat_line = '# LOG:CAT=trades_stats:MSG= '
+        for symbol, amount in trades_count_5min.items():
+            if amount != 0:
+                stat_line += f"{symbol}:{amount} "
+            trades_count_5min[symbol] = 0
+        if stat_line != '# LOG:CAT=trades_stats:MSG= ':
+            print(stat_line)
+
+        stat_line = '# LOG:CAT=orderbook_stats:MSG= '
+        for symbol, amount in orders_count_5min.items():
+            if amount != 0:
+                stat_line += f"{symbol}:{amount} "
+            orders_count_5min[symbol] = 0
+        if stat_line != '# LOG:CAT=orderbook_stats:MSG= ':
+            print(stat_line)
+        await asyncio.sleep(300)
 
 
 async def main():
@@ -110,6 +136,8 @@ async def main():
             pong = asyncio.create_task(heartbeat(ws))
             # print metadata about each pair symbols
             meta_data = asyncio.create_task(metadata())
+            # print stats for trades and orders
+            statistics = asyncio.create_task(stats())
             while True:
                 # receiving data from server
                 data = await ws.recv()
