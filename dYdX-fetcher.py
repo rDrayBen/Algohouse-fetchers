@@ -3,6 +3,8 @@ import requests
 import websockets
 import time
 import asyncio
+import os
+import sys
 
 currency_url = 'https://api.dydx.exchange/v3/markets'
 answer = requests.get(currency_url)
@@ -11,7 +13,13 @@ list_currencies = list()
 WS_URL = 'wss://api.dydx.exchange/v3/ws'
 
 for key, value in currencies["markets"].items():
-	list_currencies.append(value["market"])
+	if value["status"] == 'ONLINE':
+		list_currencies.append(value["market"])
+
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 
 # get metadata about each pair of symbols
@@ -22,7 +30,6 @@ async def metadata():
 					' ' + str(str(value['tickSize'])[::-1].find('.')) + ' 1 1 0 0'
 
 		print(pair_data, flush=True)
-
 	print('@MDEND')
 
 
@@ -37,7 +44,7 @@ def get_trades(var):
 			print('!', get_unix_time(), trade_data["id"],
 				  "B" if elem["side"] == "BUY" else "S", elem['price'],
 				  elem["size"], flush=True)
-
+			symbol_count_for_5_minutes[trade_data["id"]] += 1
 
 def get_orderbook_snapshots(var):
 	order_data = var
@@ -81,59 +88,62 @@ async def main():
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
+
+			start_time = time.time()
+			tradestats_time = start_time
+
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
-
 			# create task to get metadata about each pair of symbols
 			meta_data = asyncio.create_task(metadata())
 
 			for i in range(len(list_currencies)):
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"type": "subscribe",
-					"channel": "v3_orderbook",
-					"id": f"{list_currencies[i]}",
-					"batched": False
-				}))
-
 				# create the subscription for full orderbooks and updates
+				if (os.getenv("SKIP_ORDERBOOKS") == None): # don't subscribe or report orderbook changes
+					await ws.send(json.dumps({
+						"type": "subscribe",
+						"channel": "v3_orderbook",
+						"id": f"{list_currencies[i]}",
+						"batched": False
+					}))
+				# create the subscription for trades
 				await ws.send(json.dumps({
 					"type": "subscribe",
 					"channel": "v3_trades",
 					"id": f"{list_currencies[i]}"
 				}))
-
 			while True:
-				data = await ws.recv()
 
+				data = await ws.recv()
 				dataJSON = json.loads(data)
 
+				if abs(time.time() - tradestats_time) >= 300:
+					data1 = "# LOG:CAT=trades_stats:MSG= "
+					data2 = " ".join(key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
+					sys.stdout.write(data1 + data2)
+					sys.stdout.write("\n")
+					for key in symbol_count_for_5_minutes:
+						symbol_count_for_5_minutes[key] = 0
+					tradestats_time = time.time()
+
 				if "channel" in dataJSON:
-
 					try:
-
 						# if received data is about trades
 						if dataJSON['channel'] == 'v3_trades':
 							get_trades(dataJSON)
-
 						elif dataJSON['channel'] == 'v3_orderbook':
 							# if received data is orderbook snapshots
 							if dataJSON["type"] == "subscribed":
 								get_orderbook_snapshots(dataJSON)
-
 							# if received data is orderbook updates
 							if dataJSON["type"] == "channel_data":
 								get_orderbook_updates(dataJSON)
-
 							else:
 								pass
-
 						else:
 							pass
-
 					except Exception as ex:
 						print(f"Exception {ex} occurred")
-
 		except Exception as conn_ex:
 			print(f"Connection exception {conn_ex} occurred")
 

@@ -3,6 +3,8 @@ import requests
 import websockets
 import time
 import asyncio
+import os
+import sys
 
 currency_url = 'https://api.narkasa.com/v3/api/market/markets'
 answer = requests.get(currency_url)
@@ -13,7 +15,10 @@ WS_URL = 'wss://api.narkasa.com/v3'
 for element in currencies["markets"]:
 	list_currencies.append(element["symbol"])
 
-print(list_currencies)
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 # get metadata about each pair of symbols
 async def metadata():
@@ -37,6 +42,7 @@ def get_trades(var):
 		print('!', get_unix_time(), trade_data['symbol'],
 			"B" if trade_data["tradeType"] == 0 else "S", str(trade_data['price']),
 			str(trade_data["amount"]), flush=True)
+		symbol_count_for_5_minutes[trade_data['symbol']] += 1
 
 
 def get_order_books(var):
@@ -66,6 +72,10 @@ async def main():
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
+
+			start_time = time.time()
+			tradestats_time = start_time
+
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
@@ -83,20 +93,30 @@ async def main():
 					}]
 				}))
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"method": "SUBSCRIBE",
-					"params": [{
-						"type": "depth",
-						"symbol": f"{list_currencies[i]}",
-						"interval": "m5"
-					}]
-				}))
+				if (os.getenv("SKIP_ORDERBOOKS") == None):
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"method": "SUBSCRIBE",
+						"params": [{
+							"type": "depth",
+							"symbol": f"{list_currencies[i]}",
+							"interval": "m5"
+						}]
+					}))
 
 			while True:
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
+
+				if abs(time.time() - tradestats_time) >= 300:
+					data1 = "# LOG:CAT=trades_stats:MSG= "
+					data2 = " ".join(key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
+					sys.stdout.write(data1 + data2)
+					sys.stdout.write("\n")
+					for key in symbol_count_for_5_minutes:
+						symbol_count_for_5_minutes[key] = 0
+					tradestats_time = time.time()
 
 				if "type" in dataJSON and "method" not in dataJSON:
 

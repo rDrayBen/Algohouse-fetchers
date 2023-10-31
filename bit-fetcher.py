@@ -3,6 +3,8 @@ import requests
 import websockets
 import time
 import asyncio
+import os
+import sys
 
 # get all available symbol pairs
 currency_url = 'https://api.bit.com/spot/v1/instruments'
@@ -14,6 +16,11 @@ WS_URL = 'wss://ws.bit.com'
 # check if the certain symbol pair is available
 for element in currencies["data"]:
 	list_currencies.append(element["pair"])
+
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 
 # get metadata about each pair of symbols
@@ -40,6 +47,7 @@ def get_trades(var):
 		print('!', get_unix_time(), element['instrument_id'].replace("-PERPETUAL", ""),
 			  "B" if element["side"] == "buy" else "S", element['price'],
 			  element["qty"], flush=True)
+		symbol_count_for_5_minutes[element['instrument_id'].replace("-PERPETUAL", "")] += 1
 
 
 # put the orderbook and deltas information in output format
@@ -90,6 +98,10 @@ async def main():
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
+
+			start_time = time.time()
+			tradestats_time = start_time
+
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
@@ -110,24 +122,33 @@ async def main():
 					],
 					"interval": "100ms"
 				}))
-
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"type": "subscribe",
-					"instruments": [
-						f"{list_currencies[i]}" + "-PERPETUAL"
-					],
-					"channels": [
-						"depth"
-					],
-					"interval": "100ms"
-				}))
+				if os.getenv("SKIP_ORDERBOOKS") == None:
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"type": "subscribe",
+						"instruments": [
+							f"{list_currencies[i]}" + "-PERPETUAL"
+						],
+						"channels": [
+							"depth"
+						],
+						"interval": "100ms"
+					}))
 
 			while True:
 
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
+
+				if abs(time.time() - tradestats_time) >= 300:
+					data1 = "# LOG:CAT=trades_stats:MSG= "
+					data2 = " ".join(key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
+					sys.stdout.write(data1 + data2)
+					sys.stdout.write("\n")
+					for key in symbol_count_for_5_minutes:
+						symbol_count_for_5_minutes[key] = 0
+					tradestats_time = time.time()
 
 				if "channel" in dataJSON:
 

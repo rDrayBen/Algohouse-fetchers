@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://api.bitenium.com/spotapi/api/exchangeInfo'
 answer = requests.get(currency_url)
@@ -77,12 +78,13 @@ async def main():
 					"event": "add"
 				}))
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"channel": "depth",
-					"market": f"{list_currencies[i]}",
-					"event": "add"
-				}))
+				if os.getenv("SKIP_ORDERBOOKS") == None:
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"channel": "depth",
+						"market": f"{list_currencies[i]}",
+						"event": "add"
+					}))
 
 			while True:
 				data = await ws.recv()

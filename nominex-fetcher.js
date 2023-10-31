@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import fs from "fs";
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://nominex.io/api/ws/v1';
@@ -251,4 +252,7 @@ async function ConnectOrders(){
 
 Metadata();
 ConnectTrades();
-ConnectOrders();
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    ConnectOrders();
+}
+

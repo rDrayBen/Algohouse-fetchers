@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import zlib from 'zlib';
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 // const wsUrl = 'wss://npush.bibox360.com';
@@ -10,6 +11,8 @@ const response = await fetch(restUrl);
 //extract JSON from the http response
 const myJson = await response.json(); 
 var currencies = [];
+var trades_count_5min = {};
+var orders_count_5min = {};
 
 
 // extract symbols from JSON returned information
@@ -21,6 +24,8 @@ for(let i = 0; i < myJson['result'].length; ++i){
 // print metadata about pairs
 async function Metadata(){
     myJson['result'].forEach((item, index)=>{
+        trades_count_5min[item['pair'].toUpperCase()] = 0;
+        orders_count_5min[item['pair'].toUpperCase()] = 0;
         let pair_data = '@MD ' + item['pair'].toUpperCase() + ' spot ' + item['pair'].split('_')[0].toUpperCase() + ' ' + item['pair'].split('_')[1].toUpperCase() + ' ' 
         + item['decimal'] + ' 1 1 0 0';
         console.log(pair_data);
@@ -39,6 +44,7 @@ function getUnixTime(){
 
 // func to print trades
 async function getTrades(message){
+    trades_count_5min[message['d'][0].toUpperCase()] += 1;
     var trade_output = '! ' + getUnixTime() + ' ' + 
     message['d'][0].toUpperCase() + ' ' + 
     (message['d'][3] === '2' ? 'S ' : 'B ') + message['d'][1] + ' ' + message['d'][2];
@@ -48,6 +54,7 @@ async function getTrades(message){
 
 // func to print orderbooks and deltas
 async function getSnaphots(message){
+    orders_count_5min[message['d']['pair'].toUpperCase()] += message['d']['bids'].length + message['d']['asks'].length;
     // check if bids array is not Null
     if(message['d']['bids']){
         var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' B '
@@ -73,11 +80,14 @@ async function getSnaphots(message){
 
 // func to print orderbooks and deltas
 async function getDeltas(message){
+
     // check if bids array is not Null
     if(message['d']['add']){
+        
         var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' B '
         var pq = '';
         if(message['d']['add']['bids']){
+            orders_count_5min[message['d']['pair'].toUpperCase()] += message['d']['add']['bids'].length;
             for(let i = 0; i < message['d']['add']['bids'].length; i++){
                 pq += message['d']['add']['bids'][i][1] + '@' + message['d']['add']['bids'][i][0] + '|';
             }
@@ -85,6 +95,7 @@ async function getDeltas(message){
         }
         if(message['d']['del']){
             if(message['d']['del']['bids']){
+                orders_count_5min[message['d']['pair'].toUpperCase()] += message['d']['del']['bids'].length;
                 for(let i = 0; i < message['d']['del']['bids'].length; i++){
                     pq += '0@' + message['d']['del']['bids'][i][0] + '|';
                 }
@@ -101,6 +112,7 @@ async function getDeltas(message){
         var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' S '
         var pq = '';
         if(message['d']['add']['asks']){
+            orders_count_5min[message['d']['pair'].toUpperCase()] += message['d']['add']['asks'].length;
             for(let i = 0; i < message['d']['add']['asks'].length; i++){
                 pq += message['d']['add']['asks'][i][1] + '@' + message['d']['add']['asks'][i][0] + '|';
             }
@@ -108,6 +120,7 @@ async function getDeltas(message){
         }
         if(message['d']['del']){
             if(message['d']['del']['asks']){
+                orders_count_5min[message['d']['pair'].toUpperCase()] += message['d']['del']['asks'].length;
                 for(let i = 0; i < message['d']['del']['asks'].length; i++){
                     pq += '0@' + message['d']['del']['asks'][i][0] + '|';
                 }
@@ -120,6 +133,32 @@ async function getDeltas(message){
         
     }
 
+}
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
+    }
 }
 
 
@@ -163,9 +202,12 @@ wsClass.prototype._initWs = async function () {
                     event: 'addChannel',
                     sub: `${item}_deals`,
                 }));
-                ws.send(JSON.stringify({
-                    sub: `${item}_depth`,
-                }));
+                if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                    ws.send(JSON.stringify({
+                        sub: `${item}_depth`,
+                    }));  
+                }
+                
             }
         });
         
@@ -226,3 +268,6 @@ function CreateInstance(){
 }
 
 CreateInstance();
+
+stats();
+setInterval(stats, 300000);

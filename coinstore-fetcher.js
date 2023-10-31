@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 
 // define the websocket and REST URLs
@@ -242,5 +243,8 @@ async function ConnectOrders(){
 Metadata();
 FormReq();
 ConnectTrades();
-ConnectOrders();
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    ConnectOrders();
+}
+
 

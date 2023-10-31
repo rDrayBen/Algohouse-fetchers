@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs
 currency_url = 'https://www.ztb.im/api/v1/exchangeInfo'
@@ -38,20 +39,21 @@ async def subscribe(ws, symbol):
 	id1 = 1
 	id2 = 1000
 
-	# create the subscription for full orderbooks and updates
-	await ws.send(json.dumps({
-		"method": "depth.subscribe",
-		"params": [
-			f"{symbol}",
-			50,
-			"0.000000001"
-		],
-		"id": 10086
-	}))
+	if (os.getenv("SKIP_ORDERBOOKS") == None):
+		# create the subscription for full orderbooks and updates
+		await ws.send(json.dumps({
+			"method": "depth.subscribe",
+			"params": [
+				f"{symbol}",
+				50,
+				"0.000000001"
+			],
+			"id": 10086
+		}))
 
-	id1 += 1
+		id1 += 1
 
-	await asyncio.sleep(0.001)
+		await asyncio.sleep(0.001)
 
 	# create the subscription for trades
 	await ws.send(json.dumps({

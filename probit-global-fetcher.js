@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
-
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://www.probit.com/api/exchange/v1/ws';
@@ -118,15 +118,27 @@ async function Connect(pair){
     // create a new websocket instance
     var ws = new WebSocket(wsUrl);
     ws.onopen = function(e) {
-        ws.send(JSON.stringify(
-            {
-                "type":"subscribe",
-                "channel":"marketdata",
-                "market_id":pair,
-                "interval":100,
-                "filter":["recent_trades", "order_books_l0"]
-            }
-        ));
+        if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+            ws.send(JSON.stringify(
+                {
+                    "type":"subscribe",
+                    "channel":"marketdata",
+                    "market_id":pair,
+                    "interval":100,
+                    "filter":["recent_trades", "order_books_l0"]
+                }
+            ));
+        }else{
+            ws.send(JSON.stringify(
+                {
+                    "type":"subscribe",
+                    "channel":"marketdata",
+                    "market_id":pair,
+                    "interval":100,
+                    "filter":["recent_trades"]
+                }
+            ));
+        }
     };
 
 

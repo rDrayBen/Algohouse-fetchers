@@ -3,6 +3,8 @@ import requests
 import websockets
 import time
 import asyncio
+import os
+import sys
 
 currency_url = 'https://api.btcturk.com/api/v2/server/exchangeinfo'
 answer = requests.get(currency_url)
@@ -13,6 +15,11 @@ WS_URL = 'wss://ws-feed-pro.btcturk.com/'
 
 for element in currencies["data"]["symbols"]:
 	list_currencies.append(element["name"])
+
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 
 # get metadata about each pair of symbols
@@ -36,6 +43,7 @@ def get_trades(var):
 	print('!', get_unix_time(), trade_data[1]["PS"],
 		"B" if trade_data[1]["S"] == 0 else "S", trade_data[1]["P"],
 		 trade_data[1]["A"], flush=True)
+	symbol_count_for_5_minutes[trade_data[1]["PS"]] += 1
 
 
 def get_order_books(var, update):
@@ -73,6 +81,10 @@ async def main():
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
+
+			start_time = time.time()
+			tradestats_time = start_time
+
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
@@ -81,28 +93,38 @@ async def main():
 
 			for i in range(len(list_currencies)):
 
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps([151,
-					 {"type":151,
-					  "channel":"obdiff",
-					  "event":f"{list_currencies[i]}",
-					  "join":True}
-					 ]))
+				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps([151,
+						 {"type":151,
+						  "channel":"obdiff",
+						  "event":f"{list_currencies[i]}",
+						  "join":True}
+						 ]))
 
 				# create the subscription for trades
 				await ws.send(json.dumps(
 					[151,
 					 {"type":151,
-					  "channel":"trade",
-					  "event":f"{list_currencies[i]}",
-					  "join":True}
-					 ]
+						"channel":"trade",
+						"event":f"{list_currencies[i]}",
+						"join":True}
+						]
 				))
 
 			while True:
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
+
+				if abs(time.time() - tradestats_time) >= 300:
+					data1 = "# LOG:CAT=trades_stats:MSG= "
+					data2 = " ".join(key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
+					sys.stdout.write(data1 + data2)
+					sys.stdout.write("\n")
+					for key in symbol_count_for_5_minutes:
+						symbol_count_for_5_minutes[key] = 0
+					tradestats_time = time.time()
 
 				if "event" in dataJSON[1]:
 

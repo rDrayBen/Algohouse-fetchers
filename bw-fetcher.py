@@ -3,6 +3,9 @@ import requests
 import websockets
 import time
 import asyncio
+import os
+
+
 
 currency_url = 'https://api.bw6.com/data/v1/markets'
 answer = requests.get(currency_url)
@@ -34,13 +37,14 @@ def get_unix_time():
 	return round(time.time() * 1000)
 
 
-def get_trades(var):
-	trade_data = var
-	if 'data' in trade_data:
-		for elem in trade_data["data"]:
-			print('!', get_unix_time(), trade_data["channel"].split("_")[0].upper(),
-				  "B" if elem["type"] == "buy" else "S", elem['price'],
-				  elem["amount"], flush=True)
+# def get_trades(var, start_time):
+# 	trade_data = var
+# 	elapsed_time = time.time() - start_time
+# 	if 'data' in trade_data and elapsed_time > 5:
+# 		for elem in trade_data["data"]:
+# 			print('!', get_unix_time(), trade_data["channel"].split("_")[0].upper(),
+# 				  "B" if elem["type"] == "buy" else "S", elem['price'],
+# 				  elem["amount"], flush=True)
 
 
 def get_order_books(var, update):
@@ -60,9 +64,6 @@ def get_order_books(var, update):
 
 		print(answer + " R")
 
-
-
-
 async def heartbeat(ws):
 	while True:
 		await ws.send(json.dumps({
@@ -78,6 +79,7 @@ async def main():
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
+			start_time = time.time()
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
@@ -85,17 +87,17 @@ async def main():
 			meta_data = asyncio.create_task(metadata())
 
 			for i in range(len(list_currencies)):
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"event": "addChannel",
-					"channel": f"{list_currencies[i]}_trades"
-				}))
-
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"event":"addChannel",
-					"channel":f"{list_currencies[i]}_depth"
-				}))
+				# create the subscription for historical trades
+				# await ws.send(json.dumps({
+				# 	"event": "addChannel",
+				# 	"channel": f"{list_currencies[i]}_trades"
+				# }))
+				if (os.getenv("SKIP_ORDERBOOKS") == None):
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"event":"addChannel",
+						"channel":f"{list_currencies[i]}_depth"
+					}))
 
 			while True:
 				data = await ws.recv()
@@ -108,9 +110,9 @@ async def main():
 						if dataJSON['channel']=='pong':
 							pass
 
-						# if received data is about trades
-						elif dataJSON['channel'].split("_")[1] == 'trades':
-							get_trades(dataJSON)
+						# if received data is about historical trades
+						# elif dataJSON['channel'].split("_")[1] == 'trades':
+						# 	get_trades(dataJSON,start_time)
 
 						# if received data is about orderbooks and updates
 						elif dataJSON['channel'].split("_")[1] == 'depth':
