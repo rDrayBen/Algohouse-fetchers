@@ -4,6 +4,7 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 
 currency_url = 'https://www.commex.com/bapi/asset/v2/public/asset-service/product/get-products?includeEtf=true'
 answer = requests.get(currency_url)
@@ -13,6 +14,11 @@ WS_URL = 'wss://stream.commex.com/stream'
 
 for element in currencies["data"]:
 	list_currencies.append(element["s"].lower())
+
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 
 # get metadata about each pair of symbols
@@ -66,6 +72,7 @@ def get_trades(var):
 		print('!', get_unix_time(), trade_data["data"]['s'],
 				"B" if trade_data["data"]["m"] == True else "S", trade_data["data"]['p'],
 				trade_data["data"]["q"], flush=True)
+		symbol_count_for_5_minutes[trade_data["data"]['s'].lower()] += 1
 
 
 def get_order_books(var):
@@ -98,6 +105,9 @@ async def main():
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
 
+			start_time = time.time()
+			tradestats_time = start_time
+
 			# create task to subscribe to symbols` pair
 			subscription = asyncio.create_task(subscribe(ws))
 
@@ -112,7 +122,14 @@ async def main():
 
 				dataJSON = json.loads(data)
 
-				print(dataJSON)
+				if abs(time.time() - tradestats_time) >= 300:
+					data1 = "# LOG:CAT=trades_stats:MSG= "
+					data2 = " ".join(key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
+					sys.stdout.write(data1 + data2)
+					sys.stdout.write("\n")
+					for key in symbol_count_for_5_minutes:
+						symbol_count_for_5_minutes[key] = 0
+					tradestats_time = time.time()
 
 				if "stream" in dataJSON:
 
