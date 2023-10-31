@@ -11,6 +11,8 @@ answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 check_activity = {}
+trades_count_5min = {}
+orders_count_5min = {}
 # base web socket url
 WS_URL = 'wss://www.bitforex.com/mkapi/coinGroup1/ws'
 
@@ -18,6 +20,8 @@ WS_URL = 'wss://www.bitforex.com/mkapi/coinGroup1/ws'
 for pair_s in currencies['data']:
     list_currencies.append(pair_s['symbol'])
     check_activity[pair_s['symbol']] = False
+    trades_count_5min[pair_s['symbol'].split('-')[2].upper() + '-' + pair_s['symbol'].split('-')[1].upper()] = 0
+    orders_count_5min[pair_s['symbol'].split('-')[2].upper() + '-' + pair_s['symbol'].split('-')[1].upper()] = 0
 
 
 async def metadata():
@@ -37,6 +41,9 @@ def get_unix_time():
 # function to format the trades output
 def get_trades(message):
     check_activity[message['param']['businessType']] = True
+    trades_count_5min[
+        message['param']['businessType'].split('-')[2].upper() + '-' + message['param']['businessType'].split('-')[1].upper()
+    ] += len(message['data'])
     for elem in message['data']:
         print('!', get_unix_time(), message['param']['businessType'].split('-')[2].upper() \
               + '-' + message['param']['businessType'].split('-')[1].upper(),
@@ -47,6 +54,9 @@ def get_trades(message):
 # function to format order books and deltas(order book updates) format
 def get_order_books_and_deltas(message, update):
     check_activity[message['param']['businessType']] = True
+    orders_count_5min[
+        message['param']['businessType'].split('-')[2].upper() + '-' + message['param']['businessType'].split('-')[1].upper()
+    ] += len(message['data']['bids']) + len(message['data']['asks'])
     # check if bids array is not Null
     if 'bids' in message['data'] and message['data']['bids']:
         order_answer = '$ ' + str(get_unix_time()) + ' ' + message['param']['businessType'].split('-')[2].upper() \
@@ -116,6 +126,28 @@ async def subscribe(ws):
         await asyncio.sleep(1800)
 
 
+async def stats():
+    while True:
+        stat_line = '# LOG:CAT=trades_stats:MSG= '
+        for symbol, amount in trades_count_5min.items():
+            if amount != 0:
+                stat_line += f"{symbol}:{amount} "
+            trades_count_5min[symbol] = 0
+        if stat_line != '# LOG:CAT=trades_stats:MSG= ':
+            print(stat_line)
+        print(trades_count_5min)
+
+        stat_line = '# LOG:CAT=orderbook_stats:MSG= '
+        for symbol, amount in orders_count_5min.items():
+            if amount != 0:
+                stat_line += f"{symbol}:{amount} "
+            orders_count_5min[symbol] = 0
+        if stat_line != '# LOG:CAT=orderbook_stats:MSG= ':
+            print(stat_line)
+        print(orders_count_5min)
+        await asyncio.sleep(60)
+
+
 async def main():
     # create connection with server via base ws url
     async for ws in websockets.connect(WS_URL, ping_interval=None):
@@ -125,6 +157,8 @@ async def main():
             pong = asyncio.create_task(heartbeat(ws))
             # print metadata about each pair symbols
             meta_data = asyncio.create_task(metadata())
+            # print stats for trades and orders
+            statistics = asyncio.create_task(stats())
             while True:
 
                 try:
