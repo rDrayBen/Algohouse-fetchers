@@ -4,6 +4,7 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 
 # get all available symbol pairs
 currency_url = 'https://api.coinex.com/v1/market/info'
@@ -20,6 +21,12 @@ for key, value in currencies["data"].items():
 	list_currencies.append(element)
 	is_subscribed_trades[element] = False
 	is_subscribed_orderbooks[element] = False
+
+
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 
 async def subscribe(ws, symbol):
@@ -90,6 +97,7 @@ def get_trades(var):
 			print('!', get_unix_time(), trade_data['params'][0],
 				  "S" if element["type"] == "sell" else "B", element['price'],
 				  element["amount"], flush=True)
+			symbol_count_for_5_minutes[trade_data['params'][0]] += 1
 
 
 # put the orderbook and deltas information in output format
@@ -127,7 +135,7 @@ async def heartbeat(ws):
 		await asyncio.sleep(5)
 
 
-async def socket(symbol):
+async def socket(symbol, tradestats_time):
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
@@ -146,6 +154,17 @@ async def socket(symbol):
 					dataJSON = json.loads(data)
 
 					if "method" in dataJSON:
+
+						if abs(time.time() - tradestats_time) >= 10:
+							data1 = "# LOG:CAT=trades_stats:MSG= "
+							data2 = " ".join(
+								key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if
+								value != 0)
+							sys.stdout.write(data1 + data2)
+							sys.stdout.write("\n")
+							for key in symbol_count_for_5_minutes:
+								symbol_count_for_5_minutes[key] = 0
+							tradestats_time = time.time()
 
 						# if received data is about trades
 						if dataJSON['method'] == 'deals.update':
@@ -176,19 +195,21 @@ async def socket(symbol):
 			continue
 
 
-async def handler():
+async def handler(tradestats_time):
 	meta_data = asyncio.create_task(metadata())
-	tasks=[]
+	tasks = []
 	for symbol in list_currencies:
-		tasks.append(asyncio.create_task(socket(symbol)))
+		tasks.append(asyncio.create_task(socket(symbol, tradestats_time)))
 		await asyncio.sleep(0.1)
 
 	await asyncio.wait(tasks)
 
 
 async def main():
+	start_time = time.time()
+	tradestats_time = start_time
 	while True:
-		await handler()
+		await handler(tradestats_time)
 		await asyncio.sleep(300)
 
 
