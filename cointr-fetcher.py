@@ -4,6 +4,7 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 
 currency_url = 'https://api.cointr.pro/v1/spot/public/instruments'
 answer = requests.get(currency_url)
@@ -14,6 +15,10 @@ WS_URL = 'wss://www.cointr.pro/ws'
 for element in currencies["data"]:
 	list_currencies.append(element["instId"])
 
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 # get metadata about each pair of symbols
 async def metadata():
@@ -64,6 +69,7 @@ def get_trades(var):
 		print('!', get_unix_time(), trade_data["instId"],
 			  "B" if elem["side"] == "BUY" else "S", elem['px'],
 			  elem["sz"], flush=True)
+		symbol_count_for_5_minutes[trade_data["instId"]] += 1
 
 
 def get_order_books(var, update):
@@ -137,19 +143,31 @@ async def socket(symbol):
 			print(f"Connection exception {conn_ex} occurred")
 
 
-async def handler():
+async def handler(tradestats_time):
 	meta_data = asyncio.create_task(metadata())
 	tasks = []
 	for symbol in list_currencies:
 		tasks.append(asyncio.create_task(socket(symbol)))
+		if abs(time.time() - tradestats_time) >= 300:
+			data1 = "# LOG:CAT=trades_stats:MSG= "
+			data2 = " ".join(
+				key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if
+				value != 0)
+			sys.stdout.write(data1 + data2)
+			sys.stdout.write("\n")
+			for key in symbol_count_for_5_minutes:
+				symbol_count_for_5_minutes[key] = 0
+			tradestats_time = time.time()
 		await asyncio.sleep(0.1)
 
 	await asyncio.wait(tasks)
 
 
 async def main():
+	start_time = time.time()
+	tradestats_time = start_time
 	while True:
-		await handler()
+		await handler(tradestats_time)
 		await asyncio.sleep(300)
 
 
