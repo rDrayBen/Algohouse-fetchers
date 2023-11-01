@@ -56,7 +56,7 @@ function getUnixTime(){
 // func to print trades
 async function getTrades(message){
     message['data'].forEach((item)=>{
-        trades_count_5min[item['symbol']] += message['data'].length;
+        trades_count_5min[item['symbol']] += 1;
         var trade_output = '! ' + getUnixTime() + ' ' + 
         item['symbol'] + ' ' + 
         item['side'][0] + ' ' + item['price'] + ' ' + item['size'];
