@@ -13,6 +13,8 @@ const response = await fetch(restUrl);
 const myJson = await response.json(); 
 var currencies = [];
 var orderbooks = {};
+var trades_count_5min = {};
+var orders_count_5min = {};
 
 
 // extract symbols from JSON returned information
@@ -24,6 +26,8 @@ for(let i = 0; i < myJson.length; ++i){
 // print metadata about pairs
 async function Metadata(){
     myJson.forEach((item)=>{
+        trades_count_5min[item['name']] = 0;
+        orders_count_5min[item['name']] = 0;
         let pair_data = '@MD ' + item['name'] + ' spot ' + item['currency1'] + ' ' + item['currency2'] + ' ' 
         + item['price_precision'] + ' 1 1 0 0';
         console.log(pair_data);
@@ -40,6 +44,7 @@ function getUnixTime(){
 
 // func to print trades
 async function getTrades(message){
+    trades_count_5min[message[3]] += 1;
     var trade_output = '! ' + getUnixTime() + ' ' + 
     message[3] + ' ' + 
     message[6][0].toUpperCase() + ' ' + message[5] + ' ' + message[4];
@@ -50,6 +55,7 @@ async function getTrades(message){
 
 // func to print orderbooks and deltas
 async function getOrders(message){
+    orders_count_5min[message[2]] += message[3].length + message[4].length;
     // check if bids array is not Null
     if(message[3].length > 0){
         var order_answer = '$ ' + getUnixTime() + ' ' + message[2] + ' B '
@@ -113,16 +119,21 @@ async function getOrders(message){
                 }
             // if pair [price, quantity] is like this ["27879.20000000", "0.13600000"]
             }else{
-                // check whether is incoming price value is in orderbook
-                if(element[0] in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][element[0]]) > 0){
-                    // change quantity in orderbook
-                    orderbooks[message[2]][element[0]] = parseFloat(orderbooks[message[2]][element[0]]) + parseFloat(element[1]);
-                    // add pair to delta output
-                    pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
-                }else{
-                    orderbooks[message[2]][element[0]] = parseFloat(element[1]).noExponents();
-                    pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
+                try{
+                    // check whether is incoming price value is in orderbook
+                    if(element[0] in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][element[0]]) > 0){
+                        // change quantity in orderbook
+                        orderbooks[message[2]][element[0]] = parseFloat(orderbooks[message[2]][element[0]]) + parseFloat(element[1]);
+                        // add pair to delta output
+                        pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
+                    }else{
+                        orderbooks[message[2]][element[0]] = parseFloat(element[1]).noExponents();
+                        pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
+                    }
+                }catch(e){
+
                 }
+                
             }
             
         })
@@ -227,6 +238,7 @@ async function subForSnapshot(curr){
     try{
         const responseJSON = await response.json();
         try{
+            orders_count_5min[responseJSON['depth']['symbol']] += responseJSON['depth']['bids'].length + responseJSON['depth']['asks'].length;
             // creating orderbook for certain trading pair in general orderbook
             orderbooks[responseJSON['depth']['symbol']] = {};
             // check whether bids array is not NULL
@@ -287,6 +299,32 @@ async function subForSnapshot(curr){
     }
     
     
+}
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
+    }
 }
   
 
@@ -381,6 +419,8 @@ async function ConnectDepth2(){
 
 
 Metadata();
+stats();
+setInterval(stats, 300000);
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
     manageOrderBook();
 }
