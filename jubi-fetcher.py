@@ -4,6 +4,7 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 
 # get all available symbol pairs
 currency_url = 'https://api.jbex.com/openapi/v1/brokerInfo'
@@ -17,6 +18,10 @@ for element in currencies["symbols"]:
 	if element["status"] == "TRADING":
 		list_currencies.append(element["symbol"])
 
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 async def subscribe(ws, symbol):
 	id1 = 1
@@ -75,6 +80,7 @@ def get_trades(var):
 		print('!', get_unix_time(), trade_data['symbol'],
 			  "B" if element['m'] else "S", element['p'],
 			  element["q"], flush=True)
+		symbol_count_for_5_minutes[trade_data['symbol']] += 1
 
 
 # put the orderbook and deltas information in output format
@@ -164,18 +170,30 @@ async def socket(symbol):
 			continue
 
 
-async def handler():
+async def handler(tradestats_time):
 	meta_data = asyncio.create_task(metadata())
 	tasks = []
 	for symbol in list_currencies:
 		tasks.append(asyncio.create_task(socket(symbol)))
+		if abs(time.time() - tradestats_time) >= 300:
+			data1 = "# LOG:CAT=trades_stats:MSG= "
+			data2 = " ".join(
+				key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if
+				value != 0)
+			sys.stdout.write(data1 + data2)
+			sys.stdout.write("\n")
+			for key in symbol_count_for_5_minutes:
+				symbol_count_for_5_minutes[key] = 0
+			tradestats_time = time.time()
 		await asyncio.sleep(0.1)
 
 	await asyncio.wait(tasks)
 
 async def main():
+	start_time = time.time()
+	tradestats_time = start_time
 	while True:
-		await handler()
+		await handler(tradestats_time)
 		await asyncio.sleep(300)
 
 
