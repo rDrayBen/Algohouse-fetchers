@@ -13,6 +13,9 @@ const myJson = await response.json();
 var currencies = [];
 var precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 10000000000, 100000000000,
     1000000000000, 10000000000000, 100000000000000, 1000000000000000, 10000000000000000];
+var trades_count_5min = {};
+var orders_count_5min = {};
+    
 
 
 // extract symbols from JSON returned information
@@ -34,6 +37,8 @@ async function Metadata(){
                     break;
                 }
             }
+            trades_count_5min[item['name']] = 0;
+            orders_count_5min[item['name']] = 0;
             let pair_data = '@MD ' + item['name'] + ' spot ' + item['name'].split('/')[0] + ' ' + item['name'].split('/')[1] + ' ' 
                 + prec + ' 1 1 0 0';
             console.log(pair_data);
@@ -72,6 +77,7 @@ Number.prototype.noExponents = function() {
 
 async function getTrades(message){
     let pair_name = message['endpoint'].replace('/system/trades@50/', '');
+    trades_count_5min[pair_name] += 1;
     var trade_output = '! ' + getUnixTime() + ' ' + pair_name + ' ' + 
     message['payload']['side'][0].toUpperCase() + ' ' + parseFloat(message['payload']['price']).noExponents() + 
     ' ' + parseFloat(message['payload']['amount']).noExponents();
@@ -86,6 +92,7 @@ async function getOrders(message, update){
     var order_answer = '$ ' + getUnixTime() + ' ' + pair_name + ' B '
     var pq = '';
     if(update){
+        orders_count_5min[pair_name] += message['payload'].length;
         for(let i = 0; i < message['payload'].length; i++){
             if(message['payload'][i]['side'] === 'BUY'){
                 pq += parseFloat(message['payload'][i]['amount']).noExponents() + '@' + parseFloat(message['payload'][i]['price']).noExponents() + '|';
@@ -93,6 +100,7 @@ async function getOrders(message, update){
         }
         pq = pq.slice(0, -1);
     }else{
+        orders_count_5min[pair_name] += message['snapshot'].length;
         for(let i = 0; i < message['snapshot'].length; i++){
             if(message['snapshot'][i]['side'] === 'BUY'){
                 pq += parseFloat(message['snapshot'][i]['amount']).noExponents() + '@' + parseFloat(message['snapshot'][i]['price']).noExponents() + '|';
@@ -139,8 +147,33 @@ async function getOrders(message, update){
             console.log(order_answer + pq + ' R')
         }
     }
-        
-    
+}
+
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
+    }
 }
 
 
@@ -251,6 +284,8 @@ async function ConnectOrders(){
 }
 
 Metadata();
+stats();
+setInterval(stats, 300000);
 ConnectTrades();
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
     ConnectOrders();
