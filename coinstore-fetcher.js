@@ -13,6 +13,8 @@ const myJson = await response.json();
 var currencies = [];
 var trade_req = [];
 var order_req = [];
+var trades_count_5min = {};
+var orders_count_5min = {};
 
 
 // extract symbols from JSON returned information
@@ -25,12 +27,30 @@ for(let i = 0; i < myJson['data'].length; ++i){
 async function Metadata(){
     myJson['data'].forEach((item)=>{
         if(item['symbol'].toUpperCase().includes('USDT')){
+            trades_count_5min[item['symbol'].toUpperCase()] = 0;
+            orders_count_5min[item['symbol'].toUpperCase()] = 0;
             let pair_data = '@MD ' + item['symbol'].toUpperCase() + ' spot ' + item['symbol'].toUpperCase().replace('USDT', '') 
             + ' USDT' + ' -1 1 1 0 0';
             console.log(pair_data);
         }
         
     });
+    trades_count_5min['MANDOXETH'] = 0;
+    orders_count_5min['MANDOXETH'] = 0;
+    trades_count_5min['DUDEUSDC'] = 0;
+    orders_count_5min['DUDEUSDC'] = 0;
+    trades_count_5min['ERTHBTC'] = 0;
+    orders_count_5min['ERTHBTC'] = 0;
+    trades_count_5min['JPYCUSDC'] = 0;
+    orders_count_5min['JPYCUSDC'] = 0;
+    trades_count_5min['ANKRBNBBNB'] = 0;
+    orders_count_5min['ANKRBNBBNB'] = 0;
+    trades_count_5min['ANKRETHETH'] = 0;
+    orders_count_5min['ANKRETHETH'] = 0;
+    trades_count_5min['ROYSYFLAG'] = 0;
+    orders_count_5min['ROYSYFLAG'] = 0;
+    trades_count_5min['P2PSETH'] = 0;
+    orders_count_5min['P2PSETH'] = 0;
     console.log('@MD MANDOXETH spot MANDOX ETH -1 1 1 0 0');
     console.log('@MD DUDEUSDC spot DUDE USDC -1 1 1 0 0');
     console.log('@MD ERTHBTC spot ERTH BTC -1 1 1 0 0');
@@ -80,6 +100,12 @@ Number.prototype.noExponents = function() {
 
 
 async function getTrades(message){
+    if (message['symbol'] in trades_count_5min){
+        trades_count_5min[message['symbol']] += 1;
+    }else{
+        trades_count_5min[message['symbol']] = 1;
+    }
+    
     var trade_output = '! ' + getUnixTime() + ' ' + message['symbol'] + ' ' + 
         message['takerSide'][0].toUpperCase() + ' ' + parseFloat(message['price']).noExponents() + 
         ' ' + parseFloat(message['volume']).noExponents();
@@ -91,6 +117,12 @@ async function getOrders(message){
     
     // check if bids array is not Null
     if(message['b']){
+        if(message['symbol'] in orders_count_5min){
+            orders_count_5min[message['symbol']] += message['b'].length;
+        }else{
+            orders_count_5min[message['symbol']] = message['b'].length;
+        }
+        
         var order_answer = '$ ' + getUnixTime() + ' ' + message['symbol'] + ' B ';
         var pq = '';
         for(let i = 0; i < message['b'].length; i++){
@@ -102,6 +134,11 @@ async function getOrders(message){
 
     // check if asks array is not Null
     if(message['a']){
+        if(message['symbol'] in orders_count_5min){
+            orders_count_5min[message['symbol']] += message['a'].length;
+        }else{
+            orders_count_5min[message['symbol']] = message['a'].length;
+        }
         var order_answer = '$ ' + getUnixTime() + ' ' + message['symbol'] + ' S '
         var pq = '';
         for(let i = 0; i < message['a'].length; i++){
@@ -109,6 +146,33 @@ async function getOrders(message){
         }
         pq = pq.slice(0, -1);
         console.log(order_answer + pq + ' R');
+    }
+}
+
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
     }
 }
 
@@ -241,6 +305,8 @@ async function ConnectOrders(){
 }
 
 Metadata();
+stats();
+setInterval(stats, 300000);
 FormReq();
 ConnectTrades();
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
