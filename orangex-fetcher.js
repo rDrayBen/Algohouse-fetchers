@@ -14,6 +14,9 @@ var currencies = [];
 var precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 10000000000, 100000000000,
     1000000000000, 10000000000000, 100000000000000, 1000000000000000, 10000000000000000];
 var request = [];
+var trades_count_5min = {};
+var orders_count_5min = {};
+
 
 // extract symbols from JSON returned information
 for(let i = 0; i < myJson1['result'].length; ++i){
@@ -33,7 +36,9 @@ async function Metadata(){
                     break;
                 }
             }
-            let pair_data = '@MD ' + item['show_name'] + ' spot ' + item['quote_currency'] + 
+            trades_count_5min[item['quote_currency'] + '-' + item['base_currency']] = 0;
+            orders_count_5min[item['quote_currency'] + '-' + item['base_currency']] = 0;
+            let pair_data = '@MD ' + item['quote_currency'] + '-' + item['base_currency'] + ' spot ' + item['quote_currency'] + 
                 ' ' + item['base_currency'] + ' ' + prec +  ' 1 1 0 0';
             console.log(pair_data);
         }
@@ -81,6 +86,7 @@ async function manageOrderbook(pair){
     //extract JSON from the http response
     const myJson = await response1.json(); 
     if(myJson['result']['bids'] && myJson['result']['bids'].length > 0){
+        orders_count_5min[myJson['result']['instrument_name']] += myJson['result']['bids'].length;
         var order_answer = '$ ' + getUnixTime() + ' ' + myJson['result']['instrument_name'] + ' B ';
         var pq = '';
         for(let i = 0; i < myJson['result']['bids'].length; i++){
@@ -92,6 +98,7 @@ async function manageOrderbook(pair){
 
     // check if asks array is not Null
     if(myJson['result']['asks'] && myJson['result']['asks'].length > 0){
+        orders_count_5min[myJson['result']['instrument_name']] += myJson['result']['asks'].length;
         var order_answer = '$ ' + getUnixTime() + ' ' + myJson['result']['instrument_name'] + ' S ';
         var pq = '';
         for(let i = 0; i < myJson['result']['asks'].length; i++){
@@ -104,7 +111,9 @@ async function manageOrderbook(pair){
 
 
 async function getTrades(message){
+
     message['params']['data'].forEach((trade)=>{
+        trades_count_5min[trade['instrument_name']] += 1;
         var trade_output = '! ' + getUnixTime() + ' ' + trade['instrument_name'] + ' ' + 
         trade['direction'][0].toUpperCase() + ' ' + parseFloat(trade['price']).noExponents() + ' ' + parseFloat(trade['amount']).noExponents();
         console.log(trade_output);
@@ -115,6 +124,7 @@ async function getTrades(message){
 async function getOrders(message){
     // check if bids array is not Null
     if(message['params']['data']['bids'] && message['params']['data']['bids'].length > 0){
+        orders_count_5min[message['params']['data']['instrument_name']] += message['params']['data']['bids'].length;
         var order_answer = '$ ' + getUnixTime() + ' ' + message['params']['data']['instrument_name'] + ' B '
         var pq = '';
         for(let i = 0; i < message['params']['data']['bids'].length; i++){
@@ -126,6 +136,7 @@ async function getOrders(message){
 
     // check if asks array is not Null
     if(message['params']['data']['asks'] && message['params']['data']['asks'].length > 0){
+        orders_count_5min[message['params']['data']['instrument_name']] += message['params']['data']['asks'].length;
         var order_answer = '$ ' + getUnixTime() + ' ' + message['params']['data']['instrument_name'] + ' S '
         var pq = '';
         for(let i = 0; i < message['params']['data']['asks'].length; i++){
@@ -135,6 +146,34 @@ async function getOrders(message){
         console.log(order_answer + pq);
     }
 }
+
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
+    }
+}
+
 
 
 async function Connect(){
@@ -216,6 +255,8 @@ async function Connect(){
 
 
 Metadata();
+stats();
+setInterval(stats, 300000);
 formRequest();
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
     for(let pair of currencies){
