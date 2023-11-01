@@ -12,6 +12,9 @@ const response = await fetch(restUrl);
 const myJson = await response.json(); 
 var currencies = [];
 var check_activity = {};
+var trades_count_5min = {};
+var orders_count_5min = {};
+
 
 
 // extract symbols from JSON returned information
@@ -27,6 +30,8 @@ for(let i = 0; i < myJson['data'].length; ++i){
 async function Metadata(){
     myJson['data'].forEach((item, index)=>{
         if(item['status'] === true){
+            trades_count_5min[item['symbol']] = 0;
+            orders_count_5min[item['symbol']] = 0;
             let pair_data = '@MD ' + item['symbol'] + ' spot ' + item['base'] + ' ' + item['quote'] + ' ' 
             + item['pricePrecision'] + ' 1 1 0 0';
             console.log(pair_data);
@@ -64,6 +69,7 @@ Number.prototype.noExponents = function() {
 // func to print trades
 async function getTrades(message){
     check_activity[message['pair']] = true;
+    trades_count_5min[message['pair']] += 1;
     var trade_output = '! ' + getUnixTime() + ' ' + message['pair'] + ' ' + 
     message['data'][2][0] + ' ' + message['data'][0] + ' ' + message['data'][1];
     console.log(trade_output);
@@ -75,6 +81,7 @@ async function getSnapshot(message){
     check_activity[message['pair']] = true;
     // check if bids array is not Null
     if(message['data']['buy'] && message['data']['buy'].length > 0){
+        orders_count_5min[message['pair']] += message['data']['buy'].length;
         var order_answer = '$ ' + getUnixTime() + ' ' + message['pair'] + ' B ';
         var pq = '';
         for(let i = 0; i < message['data']['buy'].length; i++){
@@ -86,6 +93,7 @@ async function getSnapshot(message){
 
     // check if asks array is not Null
     if(message['data']['sell'] && message['data']['sell'].length > 0){
+        orders_count_5min[message['pair']] += message['data']['sell'].length;
         var order_answer = '$ ' + getUnixTime() + ' ' + message['pair'] + ' S '
         var pq = '';
         for(let i = 0; i < message['data']['sell'].length; i++){
@@ -99,10 +107,38 @@ async function getSnapshot(message){
 
 async function getDelta(message){
     check_activity[message['pair']] = true;
+    orders_count_5min[message['pair']] += 1;
     var order_answer = '$ ' + getUnixTime() + ' ' + message['pair'] + ' ' + message['data'][2][0] + ' ';
     var pq = (message['data'][1]).noExponents() + '@' + (message['data'][0]).noExponents();
     console.log(order_answer + pq);
 }
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
+    }
+}
+
 
 
 async function Connect(){
@@ -195,6 +231,8 @@ async function Connect(){
 }
 
 Metadata();
+stats();
+setInterval(stats, 300000);
 Connect();
 
 
