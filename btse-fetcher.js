@@ -13,6 +13,8 @@ const myJson = await response.json();
 var currencies = [];
 var precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 10000000000, 100000000000,
     1000000000000, 10000000000000, 100000000000000, 1000000000000000, 10000000000000000];
+var trades_count_5min = {};
+var orders_count_5min = {};
 
 // extract symbols from JSON returned information
 for(let i = 0; i < myJson.length; ++i){
@@ -33,6 +35,8 @@ async function Metadata(){
                     break;
                 }
             }
+            trades_count_5min[item['symbol']] = 0;
+            orders_count_5min[item['symbol']] = 0;
             let pair_data = '@MD ' + item['symbol'] + ' spot ' + item['base'] + ' ' + item['quote'] + ' ' 
             + prec + ' 1 1 0 0';
             console.log(pair_data);
@@ -52,6 +56,7 @@ function getUnixTime(){
 // func to print trades
 async function getTrades(message){
     message['data'].forEach((item)=>{
+        trades_count_5min[item['symbol']] += message['data'].length;
         var trade_output = '! ' + getUnixTime() + ' ' + 
         item['symbol'] + ' ' + 
         item['side'][0] + ' ' + item['price'] + ' ' + item['size'];
@@ -62,6 +67,7 @@ async function getTrades(message){
 
 // func to print orderbooks and deltas
 async function getOrders(message, update){
+    orders_count_5min[message['data']['symbol']] += message['data']['bids'].length + message['data']['asks'].length;
     // check if bids array is not Null
     if(message['data']['bids'].length > 0){
         var order_answer = '$ ' + getUnixTime() + ' ' + message['data']['symbol'] + ' B '
@@ -96,6 +102,34 @@ async function getOrders(message, update){
         }
     }
 }
+
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
+    }
+}
+
 
 function Connect1(){
     var ws1 = new WebSocket(tradeWsUrl);
@@ -234,6 +268,9 @@ function Connect2(){
 
 // call metadata to execute
 Metadata();
+
+stats();
+setInterval(stats, 300000);
 
 Connect1();
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
