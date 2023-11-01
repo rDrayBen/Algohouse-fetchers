@@ -11,6 +11,8 @@ const response = await fetch(restUrl);
 //extract JSON from the http response
 const myJson = await response.json(); 
 var currencies = [];
+var trades_count_5min = {};
+var orders_count_5min = {};
 
 
 // extract symbols from JSON returned information
@@ -25,6 +27,8 @@ for(let i = 0; i < myJson.length; ++i){
 async function Metadata(){
     myJson.forEach((item)=>{
         if(item['tokenId'].includes('-SWAP-')){
+            trades_count_5min[item['tokenId'].split('-')[0] + '-' + item['tokenId'].split('-')[2]] = 0;
+            orders_count_5min[item['tokenId'].split('-')[0] + '-' + item['tokenId'].split('-')[2]] = 0;
             let pair_data = '@MD ' + item['tokenId'].split('-')[0] + '-' + item['tokenId'].split('-')[2] + ' spot ' + 
                 item['tokenId'].split('-')[0] + ' ' + item['tokenId'].split('-')[2] + ' ' + '-1' +  ' 1 1 0 0';
             console.log(pair_data);
@@ -62,6 +66,7 @@ Number.prototype.noExponents = function() {
 
 
 async function getTrades(message){
+    trades_count_5min[message['symbol'].replace('-SWAP', '')] += message['data'].length;
     message['data'].forEach((trade)=>{
         var trade_output = '! ' + getUnixTime() + ' ' + message['symbol'].replace('-SWAP', '') + ' ' + 
             (trade['m'] ? 'B' : 'S') + ' ' + parseFloat(trade['p']).noExponents() + ' ' + parseFloat(trade['q']).noExponents();
@@ -71,6 +76,7 @@ async function getTrades(message){
 
 
 async function getOrders(message, update){
+    orders_count_5min[message['symbol'].replace('-SWAP', '')] += message['data'][0]['b'].length + message['data'][0]['a'].length;
     // check if bids array is not Null
     if(message['data'][0]['b'].length > 0){
         var order_answer = '$ ' + getUnixTime() + ' ' + message['symbol'].replace('-SWAP', '') + ' B '
@@ -99,6 +105,33 @@ async function getOrders(message, update){
         }else{
             console.log(order_answer + pq + ' R');
         }
+    }
+}
+
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
     }
 }
 
@@ -248,6 +281,8 @@ async function ConnectOrders(){
 }
 
 Metadata();
+stats();
+setInterval(stats, 300000);
 await ConnectTrades();
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
     await ConnectOrders();
