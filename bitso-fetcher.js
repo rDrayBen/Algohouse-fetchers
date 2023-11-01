@@ -10,6 +10,8 @@ const response = await fetch(restUrl);
 //extract JSON from the http response
 const myJson = await response.json(); 
 var currencies = [];
+var trades_count_5min = {};
+var orders_count_5min = {};
 
 // extract symbols from JSON returned information
 for(let i = 0; i < myJson['payload'].length; ++i){
@@ -20,6 +22,8 @@ for(let i = 0; i < myJson['payload'].length; ++i){
 // print metadata about pairs
 async function Metadata(){
     myJson['payload'].forEach((item)=>{
+        trades_count_5min[item['book'].toUpperCase()] = 0;
+        orders_count_5min[item['book'].toUpperCase()] = 0;
         let pair_data = '@MD ' + item['book'].toUpperCase() + ' spot ' + item['book'].split('_')[0].toUpperCase() + 
             ' ' + item['book'].split('_')[1].toUpperCase() + ' ' 
             + '-1 1 1 0 0';
@@ -56,6 +60,7 @@ Number.prototype.noExponents = function() {
 
 
 async function getTrades(message){
+    trades_count_5min[message['book'].toUpperCase()] += message['payload'].length;
     message['payload'].forEach((trade)=>{
         var trade_output = '! ' + getUnixTime() + ' ' + message['book'].toUpperCase() + ' ' + 
         (trade['t'] == 0 ? 'B' : 'S') + ' ' + parseFloat(trade['r']).noExponents() + ' ' + parseFloat(trade['a']).noExponents();
@@ -66,6 +71,7 @@ async function getTrades(message){
 
 async function getOrders(message, update){
     if(update){
+        orders_count_5min[message['book'].toUpperCase()] += 1;
         var order_answer = '$ ' + getUnixTime() + ' ' + message['book'].toUpperCase() + ' ' + (message['payload'][0]['t'] === 1 ? 'B ' : 'S ');
         var pq = '';
         if(message['payload'][0]['s'] === 'open'){
@@ -76,6 +82,7 @@ async function getOrders(message, update){
         console.log(order_answer + pq);
         
     }else{
+        orders_count_5min[message['book'].toUpperCase()] += message['payload']['bids'].length + message['payload']['asks'].length;
         // check if bids array is not Null
         if(message['payload']['bids']){
             var order_answer = '$ ' + getUnixTime() + ' ' + message['book'].toUpperCase() + ' B '
@@ -97,6 +104,33 @@ async function getOrders(message, update){
             pq = pq.slice(0, -1);
             console.log(order_answer + pq + ' R');
         }
+    }
+}
+
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
     }
 }
 
@@ -192,4 +226,6 @@ async function Connect(){
 Metadata();
 Connect();
 
+stats();
+setInterval(stats, 300000);
 
