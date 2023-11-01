@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 
 // define the websocket and REST URLs
@@ -12,6 +13,8 @@ const response = await fetch(restUrl);
 const myJson = await response.json(); 
 var currencies = [];
 var orderbooks = {};
+var trades_count_5min = {};
+var orders_count_5min = {};
 
 
 // extract symbols from JSON returned information
@@ -23,6 +26,8 @@ for(let i = 0; i < myJson.length; ++i){
 // print metadata about pairs
 async function Metadata(){
     myJson.forEach((item)=>{
+        trades_count_5min[item['name']] = 0;
+        orders_count_5min[item['name']] = 0;
         let pair_data = '@MD ' + item['name'] + ' spot ' + item['currency1'] + ' ' + item['currency2'] + ' ' 
         + item['price_precision'] + ' 1 1 0 0';
         console.log(pair_data);
@@ -39,16 +44,18 @@ function getUnixTime(){
 
 // func to print trades
 async function getTrades(message){
+    trades_count_5min[message[3]] += 1;
     var trade_output = '! ' + getUnixTime() + ' ' + 
     message[3] + ' ' + 
-    message[6][0].toUpperCase() + ' ' + message[4] + ' ' + message[5];
+    message[6][0].toUpperCase() + ' ' + message[5] + ' ' + message[4];
     console.log(trade_output);
     // example of message ["t",1683703622,274430761,"TRX_USDT","3921.43400516","0.06930900","sell"]
 }
 
 
 // func to print orderbooks and deltas
-async function getOrders(message, update){
+async function getOrders(message){
+    orders_count_5min[message[2]] += message[3].length + message[4].length;
     // check if bids array is not Null
     if(message[3].length > 0){
         var order_answer = '$ ' + getUnixTime() + ' ' + message[2] + ' B '
@@ -57,26 +64,29 @@ async function getOrders(message, update){
             // if pair [price, quantity] is like this ["27715.26000000", "-0.17600000"]
             if(element[1][0] === '-'){
                 // check whether is incoming price value is in orderbook
-                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
-                    if(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] - parseFloat(element[1].slice(1)) >= 0){
+                if(element[0] in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][element[0]]) > 0){
+                    if(orderbooks[message[2]][element[0]] - parseFloat(element[1].slice(1)) >= 0){
                         // change quantity in orderbook
-                        orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) - parseFloat(element[1].slice(1));
+                        orderbooks[message[2]][element[0]] = parseFloat(orderbooks[message[2]][element[0]]) - parseFloat(element[1].slice(1));
                         // add pair to delta output
-                        pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                        pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
                         // check if now quantity is 0, and delete pair [price] = quantity from orderbook
-                        if(parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) === 0){
-                            delete orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))];
+                        if(parseFloat(orderbooks[message[2]][element[0]]) === 0){
+                            delete orderbooks[message[2]][element[0]];
                         }
                     }
                 }
                 // if pair [price, quantity] is like this ["27879.20000000", "0.13600000"]
             }else{
                 // check whether is incoming price value is in orderbook
-                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
+                if(element[0] in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][element[0]]) > 0){
                     // change quantity in orderbook
-                    orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) + parseFloat(element[1]);
+                    orderbooks[message[2]][element[0]] = parseFloat(orderbooks[message[2]][element[0]]) + parseFloat(element[1]);
                     // add pair to delta output
-                    pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                    pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
+                }else{
+                    orderbooks[message[2]][element[0]] = parseFloat(element[1]).noExponents();
+                    pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
                 }
             }
             
@@ -95,27 +105,35 @@ async function getOrders(message, update){
             // if pair [price, quantity] is like this ["27715.26000000", "-0.17600000"]
             if(element[1][0] === '-'){
                 // check whether is incoming price value is in orderbook
-                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
-                    if(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] - parseFloat(element[1].slice(1)) >= 0){
+                if(element[0] in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][element[0]]) > 0){
+                    if(orderbooks[message[2]][element[0]] - parseFloat(element[1].slice(1)) >= 0){
                         // change quantity in orderbook
-                        orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) - parseFloat(element[1].slice(1));
+                        orderbooks[message[2]][element[0]] = parseFloat(orderbooks[message[2]][element[0]]) - parseFloat(element[1].slice(1));
                         // add pair to delta output
-                        pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                        pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
                         // check if now quantity is 0, and delete pair [price] = quantity from orderbook
-                        if(parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) === 0){
-                            delete orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))];
+                        if(parseFloat(orderbooks[message[2]][element[0]]) === 0){
+                            delete orderbooks[message[2]][element[0]];
                         }
                     }
                 }
             // if pair [price, quantity] is like this ["27879.20000000", "0.13600000"]
             }else{
-                // check whether is incoming price value is in orderbook
-                if(parseFloat(element[0]).toFixed(2) in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) > 0){
-                    // change quantity in orderbook
-                    orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] = parseFloat(orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))]) + parseFloat(element[1]);
-                    // add pair to delta output
-                    pq += orderbooks[message[2]][String(parseFloat(element[0]).toFixed(2))] + '@' + element[0] + '|';
+                try{
+                    // check whether is incoming price value is in orderbook
+                    if(element[0] in orderbooks[message[2]] && parseFloat(orderbooks[message[2]][element[0]]) > 0){
+                        // change quantity in orderbook
+                        orderbooks[message[2]][element[0]] = parseFloat(orderbooks[message[2]][element[0]]) + parseFloat(element[1]);
+                        // add pair to delta output
+                        pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
+                    }else{
+                        orderbooks[message[2]][element[0]] = parseFloat(element[1]).noExponents();
+                        pq += parseFloat(orderbooks[message[2]][element[0]]).noExponents() + '@' + element[0] + '|';
+                    }
+                }catch(e){
+
                 }
+                
             }
             
         })
@@ -217,40 +235,96 @@ async function subForSnapshot(curr){
     const response = await fetch(url);
 
     // convert response to JSON
-    const responseJSON = await response.json();
     try{
-        // creating orderbook for certain trading pair in general orderbook
-        orderbooks[responseJSON['depth']['symbol']] = {};
-        // check whether bids array is not NULL
-        if(responseJSON['depth']['bids'].length > 0){
-            var order_answer = '$ ' + getUnixTime() + ' ' + responseJSON['depth']['symbol'] + ' B ';
-            var pq = '';
-            responseJSON['depth']['bids'].forEach((element)=>{
-                // add new element to orderbook
-                orderbooks[responseJSON['depth']['symbol']][parseFloat(element[0]).noExponents()] = parseFloat(element[1]).noExponents();
-                // add this pair to orderbook output
-                pq += parseFloat(element[1]).noExponents() + "@" + parseFloat(element[0]).noExponents() + '|';
-            });
-            pq = pq.slice(0, -1);
-            console.log(order_answer + pq + ' R');
-        }
-        // check whether asks array is not NULL
-        if(responseJSON['depth']['asks'].length > 0){
-            var order_answer = '$ ' + getUnixTime() + ' ' + responseJSON['depth']['symbol'] + ' S ';
-            var pq = ''
-            responseJSON['depth']['asks'].forEach((element)=>{
-                // add new element to orderbook
-                orderbooks[responseJSON['depth']['symbol']][parseFloat(element[0]).noExponents()] = parseFloat(element[1]).noExponents();
-                // add this pair to orderbook output
-                pq += parseFloat(element[1]).noExponents() + "@" + parseFloat(element[0]).noExponents() + '|';
-            });
-            pq = pq.slice(0, -1);
-            console.log(order_answer + pq + ' R');
+        const responseJSON = await response.json();
+        try{
+            orders_count_5min[responseJSON['depth']['symbol']] += responseJSON['depth']['bids'].length + responseJSON['depth']['asks'].length;
+            // creating orderbook for certain trading pair in general orderbook
+            orderbooks[responseJSON['depth']['symbol']] = {};
+            // check whether bids array is not NULL
+            if(responseJSON['depth']['bids'].length > 0){
+                var order_answer = '$ ' + getUnixTime() + ' ' + responseJSON['depth']['symbol'] + ' B ';
+                var pq = '';
+                responseJSON['depth']['bids'].forEach((element)=>{
+                    var decimals_len;
+                    var last_dec = '';
+                    var dot = '';
+                    if(String(parseFloat(element[0]).noExponents()).includes('.')){
+                        decimals_len = 8 - String(parseFloat(element[0]).noExponents()).split('.')[1].length;
+                    }else{
+                        decimals_len = 8;
+                        dot = '.';
+                    }
+                    for(let i = 0; i < decimals_len; i++){
+                        last_dec += '0';
+                    }
+                    // add new element to orderbook
+                    orderbooks[responseJSON['depth']['symbol']][String(parseFloat(element[0]).noExponents()) + dot + last_dec] = parseFloat(element[1]).noExponents();
+                    // add this pair to orderbook output
+                    pq += parseFloat(element[1]).noExponents() + "@" + String(parseFloat(element[0]).noExponents()) + dot + last_dec + '|';
+                });
+                pq = pq.slice(0, -1);
+                console.log(order_answer + pq + ' R');
+            }
+            // check whether asks array is not NULL
+            if(responseJSON['depth']['asks'].length > 0){
+                var order_answer = '$ ' + getUnixTime() + ' ' + responseJSON['depth']['symbol'] + ' S ';
+                var pq = ''
+                responseJSON['depth']['asks'].forEach((element)=>{
+                    var decimals_len;
+                    var last_dec = '';
+                    var dot = '';
+                    if(String(parseFloat(element[0]).noExponents()).includes('.')){
+                        decimals_len = 8 - String(parseFloat(element[0]).noExponents()).split('.')[1].length;
+                    }else{
+                        decimals_len = 8;
+                        dot = '.';
+                    }
+                    for(let i = 0; i < decimals_len; i++){
+                        last_dec += '0';
+                    }
+                    // add new element to orderbook
+                    orderbooks[responseJSON['depth']['symbol']][String(parseFloat(element[0]).noExponents()) + dot + last_dec] = parseFloat(element[1]).noExponents();
+                    // add this pair to orderbook output
+                    pq += parseFloat(element[1]).noExponents() + "@" + String(parseFloat(element[0]).noExponents()) + dot + last_dec + '|';
+                });
+                pq = pq.slice(0, -1);
+                console.log(order_answer + pq + ' R');
+            }
+        }catch(e){
+            // if trading pair listed in metadata doesn`t have orderbook this catches an error
         }
     }catch(e){
-        // if trading pair listed in metadata doesn`t have orderbook this catches an error
+        
     }
     
+    
+}
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
+    }
 }
   
 
@@ -263,16 +337,16 @@ async function ConnectDepth1(){
         for(let i = 0; i < 20; i++){ 
             wsDepth.send(JSON.stringify(
                 ["subscribe", `diff.${currencies[i]}`]
-            )) 
+            ));
             sleep(10);
-        }
+        } 
     }
     // func to handle input messages
     wsDepth.onmessage = function(event) {
         // parse input data to JSON format
         var dataJSON = JSON.parse(event.data);
         if(dataJSON[0] === 'd'){
-            getOrders(dataJSON, true);
+            getOrders(dataJSON);
         }else{
             console.log(dataJSON);
         }
@@ -317,7 +391,7 @@ async function ConnectDepth2(){
         // parse input data to JSON format
         var dataJSON = JSON.parse(event.data);
         if(dataJSON[0] === 'd'){
-            getOrders(dataJSON, true);
+            getOrders(dataJSON);
         }else{
             console.log(dataJSON);
         }
@@ -345,10 +419,18 @@ async function ConnectDepth2(){
 
 
 Metadata();
-manageOrderBook();
+stats();
+setInterval(stats, 300000);
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    manageOrderBook();
+}
+
 Connect();
-ConnectDepth1();
-ConnectDepth2();
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    ConnectDepth1();
+    ConnectDepth2();
+}
+
 
 
 // as exchange has 38 spot pairs, out of which 37 are working, each websocket connection can handle up to 20 subs. 

@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs
 currency_url = 'https://coinsbit.io/api/v1/public/markets'
@@ -31,18 +32,18 @@ async def subscribe(ws, symbol):
 
 	await asyncio.sleep(0.01)
 
-	# create the subscription for full orderbooks and updates
-	await ws.send(json.dumps({
-		"method": "depth.subscribe",
-		"params": [
-			f"{symbol}",
-			100,
-			"0"
-		],
-		"id": id2
-	}))
-
-	id2 += 1
+	if os.getenv("SKIP_ORDERBOOKS") == None:
+		# create the subscription for full orderbooks and updates
+		await ws.send(json.dumps({
+			"method": "depth.subscribe",
+			"params": [
+				f"{symbol}",
+				100,
+				"0"
+			],
+			"id": id2
+		}))
+		id2 += 1
 
 	await asyncio.sleep(300)
 
@@ -65,12 +66,14 @@ def get_unix_time():
 
 
 # put the trade information in output format
-def get_trades(var):
+def get_trades(var, start_time):
 	trade_data = var
-	for elem in trade_data['params'][1]:
-		print("!", get_unix_time(), trade_data["params"][0],
-			  "S" if elem["type"][0] == "sell" else "B",
-			  elem["price"], elem['amount'], end="\n")
+	elapsed_time = time.time() - start_time
+	if elapsed_time > 2:
+		for elem in trade_data['params'][1]:
+			print("!", get_unix_time(), trade_data["params"][0],
+				  "S" if elem["type"][0] == "sell" else "B",
+				  elem["price"], elem['amount'], end="\n")
 
 	# print('!', get_unix_time(), trade_data['params'][0],
 	# 	  "S" if trade_data['params'][1][0]["type"] == "sell" else "B", trade_data['params'][1][0]['price'],
@@ -118,7 +121,7 @@ async def socket(symbol):
 		# create connection with server via base ws url
 		async for ws in websockets.connect(WS_URL, ping_interval=None):
 			try:
-
+				start_time = time.time()
 				# create task to keep connection alive
 				pong = asyncio.create_task(heartbeat(ws))
 				subscription = asyncio.create_task(subscribe(ws, symbol))
@@ -132,7 +135,7 @@ async def socket(symbol):
 						if "method" in dataJSON:
 							# if received data is about trades
 							if dataJSON['method'] == 'deals.update':
-								get_trades(dataJSON)
+								get_trades(dataJSON,start_time)
 
 							# if received data is about updates
 							if dataJSON['method'] == 'depth.update' and dataJSON['params'][0] == False:

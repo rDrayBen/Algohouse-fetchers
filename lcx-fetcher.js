@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
+import getenv from 'getenv';
 
 
 // define the websocket and REST URLs
@@ -10,12 +11,17 @@ const response = await fetch(restUrl);
 //extract JSON from the http response
 const myJson = await response.json(); 
 var currencies = [];
+var check_activity = {};
+var trades_count_5min = {};
+var orders_count_5min = {};
+
 
 
 // extract symbols from JSON returned information
 for(let i = 0; i < myJson['data'].length; ++i){
     if(myJson['data'][i]['status'] === true){
         currencies.push(myJson['data'][i]['symbol']);
+        check_activity[myJson['data'][i]['symbol']] = false;
     }
 }
 
@@ -24,6 +30,8 @@ for(let i = 0; i < myJson['data'].length; ++i){
 async function Metadata(){
     myJson['data'].forEach((item, index)=>{
         if(item['status'] === true){
+            trades_count_5min[item['symbol']] = 0;
+            orders_count_5min[item['symbol']] = 0;
             let pair_data = '@MD ' + item['symbol'] + ' spot ' + item['base'] + ' ' + item['quote'] + ' ' 
             + item['pricePrecision'] + ' 1 1 0 0';
             console.log(pair_data);
@@ -60,6 +68,8 @@ Number.prototype.noExponents = function() {
 
 // func to print trades
 async function getTrades(message){
+    check_activity[message['pair']] = true;
+    trades_count_5min[message['pair']] += 1;
     var trade_output = '! ' + getUnixTime() + ' ' + message['pair'] + ' ' + 
     message['data'][2][0] + ' ' + message['data'][0] + ' ' + message['data'][1];
     console.log(trade_output);
@@ -68,8 +78,10 @@ async function getTrades(message){
 
 // func to print orderbooks and deltas
 async function getSnapshot(message){
+    check_activity[message['pair']] = true;
     // check if bids array is not Null
-    if(message['data']['buy']){
+    if(message['data']['buy'] && message['data']['buy'].length > 0){
+        orders_count_5min[message['pair']] += message['data']['buy'].length;
         var order_answer = '$ ' + getUnixTime() + ' ' + message['pair'] + ' B ';
         var pq = '';
         for(let i = 0; i < message['data']['buy'].length; i++){
@@ -80,7 +92,8 @@ async function getSnapshot(message){
     }
 
     // check if asks array is not Null
-    if(message['data']['sell']){
+    if(message['data']['sell'] && message['data']['sell'].length > 0){
+        orders_count_5min[message['pair']] += message['data']['sell'].length;
         var order_answer = '$ ' + getUnixTime() + ' ' + message['pair'] + ' S '
         var pq = '';
         for(let i = 0; i < message['data']['sell'].length; i++){
@@ -93,38 +106,84 @@ async function getSnapshot(message){
 
 
 async function getDelta(message){
+    check_activity[message['pair']] = true;
+    orders_count_5min[message['pair']] += 1;
     var order_answer = '$ ' + getUnixTime() + ' ' + message['pair'] + ' ' + message['data'][2][0] + ' ';
     var pq = (message['data'][1]).noExponents() + '@' + (message['data'][0]).noExponents();
     console.log(order_answer + pq);
 }
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
+    }
+}
+
 
 
 async function Connect(){
     // create a new websocket instance
     var ws = new WebSocket(wsUrl);
     ws.onopen = function(e) {
-        // console.log('opened');
         // create ping function to keep connection alive
         ws.ping();
-        // subscribe to trades and orders for all instruments
-        currencies.forEach((item) =>{
-            // sub for trades
-            ws.send(JSON.stringify(
-                {
-                    "Topic": "subscribe", 
-                    "Type": "trade", 
-                    "Pair": item
+        async function subscribe(){
+            // subscribe to trades and orders for all instruments
+            for (const [key, value] of Object.entries(check_activity)) {
+                if(value === false){
+                    // sub for trades
+                    ws.send(JSON.stringify(
+                        {
+                            "Topic": "subscribe", 
+                            "Type": "trade", 
+                            "Pair": key
+                        }
+                    ));
+                    // console.log('subbed for', key);
+                    if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+                        // sub for orders/deltas
+                        ws.send(JSON.stringify(
+                            {
+                                "Topic": "subscribe", 
+                                "Type": "orderbook", 
+                                "Pair": key
+                            }
+                        )); 
+                    }
+                    
                 }
-            ));
-            // sub for orders/deltas
-            ws.send(JSON.stringify(
-                {
-                    "Topic": "subscribe", 
-                    "Type": "orderbook", 
-                    "Pair": item
-                }
-            ));
-        })
+                
+            }
+
+            // console.log(check_activity);
+            for (var key in check_activity) {
+                check_activity[key] = false;
+            }
+            // console.log(check_activity);
+        }
+        subscribe();
+        setInterval(subscribe, 1800000); // resub every 30 min
+        
     };
 
 
@@ -133,7 +192,6 @@ async function Connect(){
         try{
             // parse input data to JSON format
             let dataJSON = JSON.parse(event.data);
-            // console.log(dataJSON);
             if (dataJSON['type'] === 'trade' && dataJSON['topic'] === 'update'){
                 getTrades(dataJSON);
             }else if(dataJSON['type'] === 'trade' && dataJSON['topic'] === 'snapshot'){
@@ -173,6 +231,8 @@ async function Connect(){
 }
 
 Metadata();
+stats();
+setInterval(stats, 300000);
 Connect();
 
 

@@ -3,12 +3,15 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.pro.changelly.com/api/3/public/symbol'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
+trades_count_5min = {}
+orders_count_5min = {}
 # base web socket url
 WS_URL = 'wss://api.pro.changelly.com/api/3/ws/public'
 precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 10000000000, 100000000000,
@@ -18,6 +21,8 @@ precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000
 # fill the list with all available symbol pairs on exchange
 for pair_s in currencies:
     list_currencies.append(pair_s)
+    trades_count_5min[pair_s] = 0
+    orders_count_5min[pair_s] = 0
 
 
 async def metadata():
@@ -49,6 +54,7 @@ def get_trades(message):
                   elem['q'], flush=True)
     elif 'update' in message:
         coin_name = str(message['update'].keys()).replace("dict_keys(['", '').replace("'])", '')
+        trades_count_5min[coin_name] += len(list(message['update'].values())[0])
         for elem in list(message['update'].values())[0]:
             print('!', get_unix_time(), coin_name,
                   elem['s'][0].upper(), elem['p'],
@@ -57,6 +63,7 @@ def get_trades(message):
 
 # function to format order books and deltas(order book updates) format
 def get_order_books_and_deltas(message, coin_name, update):
+    orders_count_5min[coin_name] += len(message['b']) + len(message['a'])
     # check if bids array is not Null
     if message['b']:
         order_answer = '$ ' + str(get_unix_time()) + ' ' + coin_name + ' B '
@@ -101,14 +108,35 @@ async def subscribe(ws):
         },
         "id": 123
     }))
-    await ws.send(json.dumps({
-        "method": "subscribe",
-        "ch": "orderbook/full",
-        "params": {
-            "symbols": list_currencies
-        },
-        "id": 123
-    }))
+    if os.getenv("SKIP_ORDERBOOKS") is None or os.getenv("SKIP_ORDERBOOKS") == '':
+        await ws.send(json.dumps({
+            "method": "subscribe",
+            "ch": "orderbook/full",
+            "params": {
+                "symbols": list_currencies
+            },
+            "id": 123
+        }))
+
+
+async def stats():
+    while True:
+        stat_line = '# LOG:CAT=trades_stats:MSG= '
+        for symbol, amount in trades_count_5min.items():
+            if amount != 0:
+                stat_line += f"{symbol}:{amount} "
+            trades_count_5min[symbol] = 0
+        if stat_line != '# LOG:CAT=trades_stats:MSG= ':
+            print(stat_line)
+
+        stat_line = '# LOG:CAT=orderbook_stats:MSG= '
+        for symbol, amount in orders_count_5min.items():
+            if amount != 0:
+                stat_line += f"{symbol}:{amount} "
+            orders_count_5min[symbol] = 0
+        if stat_line != '# LOG:CAT=orderbook_stats:MSG= ':
+            print(stat_line)
+        await asyncio.sleep(300)
 
 
 async def main():
@@ -120,6 +148,8 @@ async def main():
             pong = asyncio.create_task(heartbeat(ws))
             # print metadata about each pair symbols
             meta_data = asyncio.create_task(metadata())
+            # print stats for trades and orders
+            statistics = asyncio.create_task(stats())
             while True:
                 # receiving data from server
                 data = await ws.recv()

@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import zlib from 'zlib';
-
+import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://www.fameex.com/spot';
@@ -16,6 +16,9 @@ const response = await fetch(restUrl);
 //extract JSON from the http response
 const myJson = await response.json(); 
 var currencies = [];
+var trades_count_5min = {};
+var orders_count_5min = {};
+
 
 
 // extract symbols from JSON returned information
@@ -27,7 +30,9 @@ for(let i = 0; i < myJson['data'].length; ++i){
 // print metadata about pairs
 async function Metadata(){
     myJson['data'].forEach((item, index)=>{
-        let pair_data = '@MD ' + item['pair'] + ' spot ' + item['base'] + ' ' + item['quote'] + ' ' 
+        trades_count_5min[item['base'] + '-' + item['quote']] = 0;
+        orders_count_5min[item['base'] + '-' + item['quote']] = 0;
+        let pair_data = '@MD ' + item['base'] + '-' + item['quote'] + ' spot ' + item['base'] + ' ' + item['quote'] + ' ' 
         + item['pricePrecision'] + ' 1 1 0 0';
         console.log(pair_data);
     })
@@ -44,6 +49,7 @@ function getUnixTime(){
 // func to print trades
 async function getTrades(message){
     message['data'].forEach((item)=>{
+        trades_count_5min[item['symbol']] += 1;
         var trade_output = '! ' + getUnixTime() + ' ' + 
         item['symbol'] + ' ' + 
         (item['side'] === 1 ? 'B' : 'S') + ' ' + item['price'] + ' ' + item['amount'];
@@ -56,6 +62,7 @@ async function getTrades(message){
 async function getOrders(message, update){
     // check if bids array is not Null
     if(message['data']['bids']){
+        orders_count_5min[message['data']['symbol']] += message['data']['bids'].length;
         var order_answer = '$ ' + getUnixTime() + ' ' + message['data']['symbol'] + ' B '
         var pq = '';
         message['data']['bids'].forEach((element)=>{
@@ -73,6 +80,7 @@ async function getOrders(message, update){
 
     // check if asks array is not Null
     if(message['data']['asks']){
+        orders_count_5min[message['data']['symbol']] += message['data']['asks'].length;
         var order_answer = '$ ' + getUnixTime() + ' ' + message['data']['symbol'] + ' S '
         var pq = '';
         message['data']['asks'].forEach((element)=>{
@@ -88,6 +96,33 @@ async function getOrders(message, update){
         }
     }
 }
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
+    }
+}
+
 
 var wsTradesArray = [];
 for(let i = 0; i < currencies.length; i++){
@@ -161,12 +196,12 @@ async function ConnectTrades(index){
 }
     
 
-
-var wsDepthArray = [];
-for(let i = 0; i < currencies.length; i++){
-    wsDepthArray.push(ConnectDepth(i));
-}
-  
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    var wsDepthArray = [];
+    for(let i = 0; i < currencies.length; i++){
+        wsDepthArray.push(ConnectDepth(i));
+    }
+} 
 
 async function ConnectDepth(index){
     var wsDepth = new WebSocket(wsUrl);
@@ -233,5 +268,5 @@ async function ConnectDepth(index){
 }
 
 Metadata();
-// ConnectTrades();
-// ConnectDepth();
+stats();
+setInterval(stats, 300000);
