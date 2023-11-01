@@ -21,15 +21,6 @@ for key, value in currencies["data"].items():
 	list_currencies.append(element)
 	is_subscribed_trades[element] = False
 	is_subscribed_orderbooks[element] = False
-<<<<<<< HEAD
-=======
-
-
-#for trades count stats
-symbol_count_for_5_minutes = {}
-for i in range(len(list_currencies)):
-	symbol_count_for_5_minutes[list_currencies[i]] = 0
->>>>>>> eaeffd55becb9d988859dc76cc09a02a4d8d1524
 
 
 #for trades count stats
@@ -143,7 +134,7 @@ async def heartbeat(ws):
 		await asyncio.sleep(5)
 
 
-async def socket(symbol, tradestats_time):
+async def socket(symbol):
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
@@ -163,17 +154,6 @@ async def socket(symbol, tradestats_time):
 
 
 					if "method" in dataJSON:
-
-						if abs(time.time() - tradestats_time) >= 10:
-							data1 = "# LOG:CAT=trades_stats:MSG= "
-							data2 = " ".join(
-								key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if
-								value != 0)
-							sys.stdout.write(data1 + data2)
-							sys.stdout.write("\n")
-							for key in symbol_count_for_5_minutes:
-								symbol_count_for_5_minutes[key] = 0
-							tradestats_time = time.time()
 
 						# if received data is about trades
 						if dataJSON['method'] == 'deals.update':
@@ -206,9 +186,8 @@ async def socket(symbol, tradestats_time):
 
 async def handler(tradestats_time):
 	meta_data = asyncio.create_task(metadata())
-	tasks = []
+	tasks=[]
 	for symbol in list_currencies:
-<<<<<<< HEAD
 		tasks.append(asyncio.create_task(socket(symbol)))
 		if abs(time.time() - tradestats_time) >= 300:
 			data1 = "# LOG:CAT=trades_stats:MSG= "
@@ -220,9 +199,6 @@ async def handler(tradestats_time):
 			for key in symbol_count_for_5_minutes:
 				symbol_count_for_5_minutes[key] = 0
 			tradestats_time = time.time()
-=======
-		tasks.append(asyncio.create_task(socket(symbol, tradestats_time)))
->>>>>>> eaeffd55becb9d988859dc76cc09a02a4d8d1524
 		await asyncio.sleep(0.1)
 
 	await asyncio.wait(tasks)
