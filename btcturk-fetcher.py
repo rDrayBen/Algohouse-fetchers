@@ -17,9 +17,14 @@ for element in currencies["data"]["symbols"]:
 	list_currencies.append(element["name"])
 
 #for trades count stats
-symbol_count_for_5_minutes = {}
+symbol_trade_count_for_5_minutes = {}
 for i in range(len(list_currencies)):
-	symbol_count_for_5_minutes[list_currencies[i]] = 0
+	symbol_trade_count_for_5_minutes[list_currencies[i]] = 0
+
+#for orderbooks count stats
+symbol_orderbook_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_orderbook_count_for_5_minutes[list_currencies[i].upper()] = 0
 
 
 # get metadata about each pair of symbols
@@ -43,12 +48,13 @@ def get_trades(var):
 	print('!', get_unix_time(), trade_data[1]["PS"],
 		"B" if trade_data[1]["S"] == 0 else "S", trade_data[1]["P"],
 		 trade_data[1]["A"], flush=True)
-	symbol_count_for_5_minutes[trade_data[1]["PS"]] += 1
+	symbol_trade_count_for_5_minutes[trade_data[1]["PS"]] += 1
 
 
 def get_order_books(var, update):
 	order_data = var
 	if 'AO' in order_data[1] and len(order_data[1]["AO"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data[1]['PS']] += len(order_data[1]["AO"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data[1]['PS'] + ' S '
 		pq = "|".join(el["A"] + "@" + el["P"] for el in order_data[1]["AO"])
 		answer = order_answer + pq
@@ -59,6 +65,7 @@ def get_order_books(var, update):
 			print(answer + " R")
 
 	if 'BO' in order_data[1] and len(order_data[1]["BO"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data[1]['PS']] += len(order_data[1]["BO"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data[1]['PS'] + ' B '
 		pq = "|".join(el["A"] + "@" + el["P"] for el in order_data[1]["BO"])
 		answer = order_answer + pq
@@ -117,13 +124,27 @@ async def main():
 
 				dataJSON = json.loads(data)
 
+				# trade and orderbook stats output
 				if abs(time.time() - tradestats_time) >= 300:
 					data1 = "# LOG:CAT=trades_stats:MSG= "
-					data2 = " ".join(key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
+					data2 = " ".join(
+						key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if
+						value != 0)
 					sys.stdout.write(data1 + data2)
 					sys.stdout.write("\n")
-					for key in symbol_count_for_5_minutes:
-						symbol_count_for_5_minutes[key] = 0
+					for key in symbol_trade_count_for_5_minutes:
+						symbol_trade_count_for_5_minutes[key] = 0
+
+					data3 = "# LOG:CAT=orderbooks_stats:MSG= "
+					data4 = " ".join(
+						key.upper() + ":" + str(value) for key, value in
+						symbol_orderbook_count_for_5_minutes.items() if
+						value != 0)
+					sys.stdout.write(data3 + data4)
+					sys.stdout.write("\n")
+					for key in symbol_orderbook_count_for_5_minutes:
+						symbol_orderbook_count_for_5_minutes[key] = 0
+
 					tradestats_time = time.time()
 
 				if "event" in dataJSON[1]:
