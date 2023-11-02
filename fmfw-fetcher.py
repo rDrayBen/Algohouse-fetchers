@@ -163,7 +163,7 @@ async def main():
 						value != 0)
 					sys.stdout.write(data3 + data4)
 					sys.stdout.write("\n")
-					for key in symbol_trade_count_for_5_minutes:
+					for key in symbol_orderbook_count_for_5_minutes:
 						symbol_orderbook_count_for_5_minutes[key] = 0
 
 					tradestats_time = time.time()

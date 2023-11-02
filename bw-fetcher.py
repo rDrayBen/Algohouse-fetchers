@@ -4,7 +4,7 @@ import websockets
 import time
 import asyncio
 import os
-
+import sys
 
 
 currency_url = 'https://api.bw6.com/data/v1/markets'
@@ -20,6 +20,10 @@ for key, value in currencies.items():
 	currency2 = parts[1]
 	list_currencies.append(currency1+currency2)
 
+#for orderbooks count stats
+symbol_orderbook_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_orderbook_count_for_5_minutes[list_currencies[i].upper()] = 0
 
 # get metadata about each pair of symbols
 async def metadata():
@@ -51,6 +55,7 @@ def get_order_books(var, update):
 	order_data = var
 
 	if 'asks' in order_data and len(order_data["asks"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data["channel"].split("_")[0].upper()] += len(order_data["asks"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data["channel"].split("_")[0].upper() + ' S '
 		pq = "|".join(str(el[1]) + "@" + str("{:.8f}".format(el[0])) for el in order_data["asks"])
 		answer = order_answer + pq
@@ -58,6 +63,7 @@ def get_order_books(var, update):
 		print(answer + " R")
 
 	if 'bids' in order_data and len(order_data["bids"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data["channel"].split("_")[0].upper()] += len(order_data["bids"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data["channel"].split("_")[0].upper() + ' B '
 		pq = "|".join(str(el[1]) + "@" + str("{:.8f}".format(el[0])) for el in order_data["bids"])
 		answer = order_answer + pq
@@ -79,7 +85,10 @@ async def main():
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
+
 			start_time = time.time()
+			tradestats_time = start_time
+
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
@@ -103,6 +112,19 @@ async def main():
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
+
+				if abs(time.time() - tradestats_time) >= 5:
+					data1 = "# LOG:CAT=orderbooks_stats:MSG= "
+					data2 = " ".join(
+						key.upper() + ":" + str(value) for key, value in
+						symbol_orderbook_count_for_5_minutes.items() if
+						value != 0)
+					sys.stdout.write(data1 + data2)
+					sys.stdout.write("\n")
+					for key in symbol_orderbook_count_for_5_minutes:
+						symbol_orderbook_count_for_5_minutes[key] = 0
+
+					tradestats_time = time.time()
 
 				if "channel" in dataJSON:
 					try:
