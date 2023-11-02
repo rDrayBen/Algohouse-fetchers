@@ -177,7 +177,6 @@ async def main():
 					for key in symbol_trade_count_for_5_minutes:
 						symbol_orderbook_count_for_5_minutes[key] = 0
 
-
 					tradestats_time = time.time()
 
 				if "topic" in dataJSON:
