@@ -10,6 +10,8 @@ const response = await fetch(restUrl);
 //extract JSON from the http response
 const myJson = await response.json(); 
 var currencies = [];
+var trades_count_5min = {};
+var orders_count_5min = {};
 
 
 // extract symbols from JSON returned information
@@ -20,6 +22,8 @@ for(let i = 0; i < myJson.length; ++i){
 // print metadata about pairs
 async function Metadata(){
     currencies.forEach((item)=>{
+        trades_count_5min[item] = 0;
+        orders_count_5min[item] = 0;
         let pair_data = '@MD ' + item + ' spot ' + 
             item.split('-')[0] + ' ' + item.split('-')[1] + ' ' + '-1' +  ' 1 1 0 0';
         console.log(pair_data);
@@ -55,6 +59,7 @@ Number.prototype.noExponents = function() {
 
 
 async function getTrades(message, pair_name){
+    trades_count_5min[pair_name] += 1;
     var trade_output = '! ' + getUnixTime() + ' ' + pair_name + ' ' + 
         (message['d'][1] === 0 ? 'B' : 'S') + ' ' + parseFloat(message['d'][2]).noExponents() + ' ' + parseFloat(message['d'][3]).noExponents();
     console.log(trade_output);
@@ -63,6 +68,7 @@ async function getTrades(message, pair_name){
 
 async function getOrders(message, update, pair_name){
     if(!update || message['a'] === 'add'){
+        orders_count_5min[pair_name] += Object.keys(message['d']).length; 
         var order_answer = '$ ' + getUnixTime() + ' ' + pair_name + ' ' + message['t'][0].toUpperCase() + ' ';
         var pq = '';
         for(var key in message['d']){
@@ -80,6 +86,7 @@ async function getOrders(message, update, pair_name){
         }
         
     }else{
+        orders_count_5min[pair_name] += Object.keys(message['d']).length; 
         var order_answer = '$ ' + getUnixTime() + ' ' + pair_name + ' ' + message['t'][0].toUpperCase() + ' ';
         var pq = '';
         for(var key in message['d']){
@@ -89,6 +96,32 @@ async function getOrders(message, update, pair_name){
         console.log(order_answer + pq);
     }
     
+}
+
+async function stats(){
+    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
+
+    for(var key in trades_count_5min){
+        if(trades_count_5min[key] !== 0){
+            stat_line += `${key}:${trades_count_5min[key]} `;
+        }
+        trades_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
+        console.log(stat_line);
+    }
+
+    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
+
+    for(var key in orders_count_5min){
+        if(orders_count_5min[key] !== 0){
+            stat_line += `${key}:${orders_count_5min[key]} `;
+        }
+        orders_count_5min[key] = 0;
+    }
+    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
+        console.log(stat_line);
+    }
 }
 
 
@@ -158,6 +191,8 @@ async function Connect(pair){
 }
 
 Metadata();
+stats();
+setInterval(stats, 300000);
 var connections = [];
 
 for(let pair of currencies){
