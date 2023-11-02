@@ -4,6 +4,7 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 
 currency_url = 'https://api-matic.idex.io/v1/markets'
 answer = requests.get(currency_url)
@@ -11,9 +12,13 @@ currencies = answer.json()
 list_currencies = list()
 WS_URL = 'wss://websocket-matic.idex.io/v1'
 
-
 for element in currencies:
 	list_currencies.append(element["market"])
+
+#for trades count stats
+symbol_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_count_for_5_minutes[list_currencies[i]] = 0
 
 
 async def subscribe(ws, symbol):
@@ -75,6 +80,7 @@ def get_trades(var):
 		print('!', get_unix_time(), trade_data["data"]["m"],
 				"B" if trade_data["data"]["s"] == "buy" else "S", trade_data["data"]['p'],
 				trade_data["data"]["q"], flush=True)
+		symbol_count_for_5_minutes[trade_data['params'][0]] += 1
 
 
 def get_order_books(var):
@@ -103,6 +109,19 @@ async def heartbeat(ws):
 		}))
 		await asyncio.sleep(5)
 
+
+async def stats():
+	while True:
+		data1 = "# LOG:CAT=trades_stats:MSG= "
+		data2 = " ".join(
+			key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if
+			value != 0)
+		sys.stdout.write(data1 + data2)
+		sys.stdout.write("\n")
+		for key in symbol_count_for_5_minutes:
+			symbol_count_for_5_minutes[key] = 0
+
+		await asyncio.sleep(300)
 
 async def socket(symbol):
 	# create connection with server via base ws url
@@ -141,17 +160,17 @@ async def socket(symbol):
 
 async def handler():
 	meta_data = asyncio.create_task(metadata())
-	tasks = []
+	stats_data = asyncio.create_task(stats())
+	tasks=[]
 	for symbol in list_currencies:
 		tasks.append(asyncio.create_task(socket(symbol)))
-		await asyncio.sleep(0.1)
+		await asyncio.sleep(1)
 
 	await asyncio.wait(tasks)
 
+
 async def main():
-	while True:
-		await handler()
-		await asyncio.sleep(300)
+	await handler()
 
 
 asyncio.run(main())
