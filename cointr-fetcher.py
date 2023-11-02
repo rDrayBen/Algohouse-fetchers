@@ -148,7 +148,7 @@ async def handler(tradestats_time):
 	tasks = []
 	for symbol in list_currencies:
 		tasks.append(asyncio.create_task(socket(symbol)))
-		if abs(time.time() - tradestats_time) >= 300:
+		if abs(time.time() - tradestats_time) >= 5:
 			data1 = "# LOG:CAT=trades_stats:MSG= "
 			data2 = " ".join(
 				key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if
