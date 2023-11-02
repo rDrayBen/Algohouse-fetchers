@@ -13,6 +13,8 @@ WS_URL = 'wss://exmarkets.com/ws'
 list_currencies_id = list()
 list_currencies_name = list()
 
+print(currencies)
+
 
 for element in currencies["markets"]:
 	list_currencies_id.append(element["id"])
@@ -21,7 +23,7 @@ for element in currencies["markets"]:
 #for trades count stats
 symbol_count_for_5_minutes = {}
 for i in range(len(list_currencies_name)):
-	symbol_count_for_5_minutes[list_currencies_name[i]] = 0
+	symbol_count_for_5_minutes[list_currencies_name[i].upper()] = 0
 
 async def subscribe(ws, symbol):
 
@@ -81,6 +83,19 @@ def get_order_books(var):
 		print(answer + " R")
 
 
+async def stats():
+	while True:
+		data1 = "# LOG:CAT=trades_stats:MSG= "
+		data2 = " ".join(
+			key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if
+			value != 0)
+		sys.stdout.write(data1 + data2)
+		sys.stdout.write("\n")
+		for key in symbol_count_for_5_minutes:
+			symbol_count_for_5_minutes[key] = 0
+
+		await asyncio.sleep(300)
+
 async def socket(symbol):
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
@@ -92,16 +107,6 @@ async def socket(symbol):
 
 				try:
 					dataJSON = json.loads(data)
-
-					if abs(time.time() - tradestats_time) >= 300:
-						data1 = "# LOG:CAT=trades_stats:MSG= "
-						data2 = " ".join(
-							key + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if value != 0)
-						sys.stdout.write(data1 + data2)
-						sys.stdout.write("\n")
-						for key in symbol_count_for_5_minutes:
-							symbol_count_for_5_minutes[key] = 0
-						tradestats_time = time.time()
 
 					# if received data is about trades
 					if dataJSON['type'] == 'market-trade':
@@ -125,6 +130,7 @@ async def socket(symbol):
 
 async def handler():
 	meta_data = asyncio.create_task(metadata())
+	stats_data = asyncio.create_task(stats())
 	tasks = []
 	for symbol in list_currencies_id:
 		tasks.append(asyncio.create_task(socket(symbol)))
@@ -133,9 +139,8 @@ async def handler():
 	await asyncio.wait(tasks)
 
 async def main():
-	while True:
-		await handler()
-		await asyncio.sleep(300)
+	await handler()
+
 
 
 asyncio.run(main())

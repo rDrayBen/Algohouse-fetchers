@@ -80,7 +80,7 @@ def get_trades(var):
 		print('!', get_unix_time(), trade_data["data"]["m"],
 				"B" if trade_data["data"]["s"] == "buy" else "S", trade_data["data"]['p'],
 				trade_data["data"]["q"], flush=True)
-		symbol_count_for_5_minutes[trade_data['params'][0]] += 1
+		symbol_count_for_5_minutes[trade_data["data"]["m"]] += 1
 
 
 def get_order_books(var):
