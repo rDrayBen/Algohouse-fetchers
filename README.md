@@ -125,3 +125,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 122. bybit(python, websocket)
 123. zondacrypto(python, websocket)
 124. bytedex(python, websocket)
+125. Mufex(javascript, websocket)
