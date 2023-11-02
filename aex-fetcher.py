@@ -26,7 +26,7 @@ for i in range(len(list_currencies)):
 #for orderbooks count stats
 symbol_orderbook_count_for_5_minutes = {}
 for i in range(len(list_currencies)):
-	symbol_orderbook_count_for_5_minutes[list_currencies[i]] = 0
+	symbol_orderbook_count_for_5_minutes[list_currencies[i].upper()] = 0
 
 # get metadata about each pair of symbols
 async def metadata():
