@@ -103,6 +103,19 @@ async def heartbeat(ws):
 		await asyncio.sleep(5)
 
 
+async def stats():
+	while True:
+		data1 = "# LOG:CAT=trades_stats:MSG= "
+		data2 = " ".join(
+			key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if
+			value != 0)
+		sys.stdout.write(data1 + data2)
+		sys.stdout.write("\n")
+		for key in symbol_count_for_5_minutes:
+			symbol_count_for_5_minutes[key] = 0
+
+		await asyncio.sleep(300)
+
 async def socket(symbol):
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
@@ -143,32 +156,19 @@ async def socket(symbol):
 			print(f"Connection exception {conn_ex} occurred")
 
 
-async def handler(tradestats_time):
+async def handler():
 	meta_data = asyncio.create_task(metadata())
-	tasks = []
+	stats_data = asyncio.create_task(stats())
+	tasks=[]
 	for symbol in list_currencies:
 		tasks.append(asyncio.create_task(socket(symbol)))
-		if abs(time.time() - tradestats_time) >= 5:
-			data1 = "# LOG:CAT=trades_stats:MSG= "
-			data2 = " ".join(
-				key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if
-				value != 0)
-			sys.stdout.write(data1 + data2)
-			sys.stdout.write("\n")
-			for key in symbol_count_for_5_minutes:
-				symbol_count_for_5_minutes[key] = 0
-			tradestats_time = time.time()
-		await asyncio.sleep(0.1)
+		await asyncio.sleep(1)
 
 	await asyncio.wait(tasks)
 
 
 async def main():
-	start_time = time.time()
-	tradestats_time = start_time
-	while True:
-		await handler(tradestats_time)
-		await asyncio.sleep(300)
+	await handler()
 
 
 asyncio.run(main())
