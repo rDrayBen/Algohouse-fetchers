@@ -61,7 +61,7 @@ def get_orderbook_snapshots(var):
 		answer_S = order_answer_S + pq_S
 		print(answer_S + " R")
 
-		symbol_orderbook_count_for_5_minutes[order_data['id']] += len(order_data["contents"]["asks"])
+		symbol_orderbook_count_for_5_minutes[order_data['id']] += len(order_data["contents"]["bids"])
 		order_answer_B = '$ ' + str(get_unix_time()) + " " + order_data['id'] + ' B '
 		pq_B = "|".join(el["size"] + "@" + el["price"] for el in order_data["contents"]["bids"])
 		answer_B = order_answer_B + pq_B
@@ -78,7 +78,7 @@ def get_orderbook_updates(var):
 		print(answer_S)
 
 	if 'bids' in order_data["contents"] and len(order_data["contents"]["bids"]) != 0:
-		symbol_orderbook_count_for_5_minutes[order_data['id']] += len(order_data["contents"]["asks"])
+		symbol_orderbook_count_for_5_minutes[order_data['id']] += len(order_data["contents"]["bids"])
 		order_answer_B = '$ ' + str(get_unix_time()) + " " + order_data['id'] + ' B '
 		pq_B = "|".join(el[1] + "@" + el[0] for el in order_data["contents"]["bids"])
 		answer_B = order_answer_B + pq_B
@@ -147,15 +147,6 @@ async def main():
 					for key in symbol_trade_count_for_5_minutes:
 						symbol_orderbook_count_for_5_minutes[key] = 0
 
-					tradestats_time = time.time()
-
-				if abs(time.time() - tradestats_time) >= 300:
-					data1 = "# LOG:CAT=trades_stats:MSG= "
-					data2 = " ".join(key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if value != 0)
-					sys.stdout.write(data1 + data2)
-					sys.stdout.write("\n")
-					for key in symbol_trade_count_for_5_minutes:
-						symbol_trade_count_for_5_minutes[key] = 0
 					tradestats_time = time.time()
 
 				if "channel" in dataJSON:
