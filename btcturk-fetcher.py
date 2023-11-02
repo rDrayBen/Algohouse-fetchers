@@ -16,6 +16,7 @@ WS_URL = 'wss://ws-feed-pro.btcturk.com/'
 for element in currencies["data"]["symbols"]:
 	list_currencies.append(element["name"])
 
+
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
 for i in range(len(list_currencies)):
@@ -24,7 +25,7 @@ for i in range(len(list_currencies)):
 #for orderbooks count stats
 symbol_orderbook_count_for_5_minutes = {}
 for i in range(len(list_currencies)):
-	symbol_orderbook_count_for_5_minutes[list_currencies[i].upper()] = 0
+	symbol_orderbook_count_for_5_minutes[list_currencies[i]] = 0
 
 
 # get metadata about each pair of symbols
