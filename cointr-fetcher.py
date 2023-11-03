@@ -132,7 +132,7 @@ async def stats():
 		for key in symbol_orderbook_count_for_5_minutes:
 			symbol_orderbook_count_for_5_minutes[key] = 0
 
-		await asyncio.sleep(5)
+		await asyncio.sleep(300)
 
 
 async def socket(symbol):
