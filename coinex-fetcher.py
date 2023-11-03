@@ -141,6 +141,7 @@ async def heartbeat(ws):
 		await asyncio.sleep(5)
 
 
+# trade and orderbook stats output
 async def stats():
 	while True:
 		data1 = "# LOG:CAT=trades_stats:MSG= "
