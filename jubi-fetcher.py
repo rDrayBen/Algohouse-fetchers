@@ -19,9 +19,14 @@ for element in currencies["symbols"]:
 		list_currencies.append(element["symbol"])
 
 #for trades count stats
-symbol_count_for_5_minutes = {}
+symbol_trade_count_for_5_minutes = {}
 for i in range(len(list_currencies)):
-	symbol_count_for_5_minutes[list_currencies[i]] = 0
+	symbol_trade_count_for_5_minutes[list_currencies[i]] = 0
+
+#for orderbooks count stats
+symbol_orderbook_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_orderbook_count_for_5_minutes[list_currencies[i]] = 0
 
 async def subscribe(ws, symbol):
 	id1 = 1
@@ -80,13 +85,14 @@ def get_trades(var):
 		print('!', get_unix_time(), trade_data['symbol'],
 			  "B" if element['m'] else "S", element['p'],
 			  element["q"], flush=True)
-		symbol_count_for_5_minutes[trade_data['symbol']] += 1
+		symbol_trade_count_for_5_minutes[trade_data['symbol']] += 1
 
 
 # put the orderbook and deltas information in output format
 def get_order_books(var, depth_update):
 	order_data = var
 	if 'a' in order_data['data'][0] and len(order_data['data'][0]["a"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data['symbol']] += len(order_data['data'][0]["a"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'] + ' S '
 		pq = "|".join(el[1] + "@" + el[0] for el in order_data['data'][0]['a'])
 		answer = order_answer + pq
@@ -97,6 +103,7 @@ def get_order_books(var, depth_update):
 			print(answer + " R")
 
 	if 'b' in order_data['data'][0] and len(order_data['data'][0]["b"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data['symbol']] += len(order_data['data'][0]["b"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'] + ' B '
 		pq = "|".join(el[1] + "@" + el[0] for el in order_data['data'][0]['b'])
 		answer = order_answer + pq
@@ -116,16 +123,27 @@ async def heartbeat(ws):
 		await asyncio.sleep(0.01)
 
 
+# trade and orderbook stats output
 async def stats():
 	while True:
 		data1 = "# LOG:CAT=trades_stats:MSG= "
 		data2 = " ".join(
-			key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if
+			key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if
 			value != 0)
 		sys.stdout.write(data1 + data2)
 		sys.stdout.write("\n")
-		for key in symbol_count_for_5_minutes:
-			symbol_count_for_5_minutes[key] = 0
+		for key in symbol_trade_count_for_5_minutes:
+			symbol_trade_count_for_5_minutes[key] = 0
+
+		data3 = "# LOG:CAT=orderbooks_stats:MSG= "
+		data4 = " ".join(
+			key.upper() + ":" + str(value) for key, value in
+			symbol_orderbook_count_for_5_minutes.items() if
+			value != 0)
+		sys.stdout.write(data3 + data4)
+		sys.stdout.write("\n")
+		for key in symbol_orderbook_count_for_5_minutes:
+			symbol_orderbook_count_for_5_minutes[key] = 0
 
 		await asyncio.sleep(300)
 
