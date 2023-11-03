@@ -3,7 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
-import os
+import sys
 
 currency_url = 'https://zaif.jp/api/v2/orderbook/info'
 answer = requests.get(currency_url)
@@ -13,6 +13,11 @@ WS_URL = 'wss://ws.zaif.jp/stream?currency_pair='
 
 for key,value in currencies["currency_configs"].items():
 	list_currencies.append(value["currency_pair"])
+
+#for orderbooks count stats
+symbol_orderbook_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_orderbook_count_for_5_minutes[list_currencies[i]] = 0
 
 # get metadata about each pair of symbols
 async def metadata():
@@ -33,12 +38,14 @@ def get_unix_time():
 def get_order_books(var):
 	order_data = var
 	if 'asks' in order_data and len(order_data["asks"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data['trades'][0]['currency_pair']] += len(order_data["asks"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['trades'][0]['currency_pair'] + ' S '
 		pq = "|".join(str(el[1]) + "@" + str(el[0]) for el in order_data["asks"])
 		answer = order_answer + pq
 		print(answer + " R")
 
 	if 'bids' in order_data and len(order_data["bids"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data['trades'][0]['currency_pair']] += len(order_data["bids"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['trades'][0]['currency_pair'] + ' B '
 		pq = "|".join(str(el[1]) + "@" + str(el[0]) for el in order_data["bids"])
 		answer = order_answer + pq
@@ -52,6 +59,21 @@ async def heartbeat(ws):
 		}))
 		await asyncio.sleep(5)
 
+# trade and orderbook stats output
+async def stats():
+	while True:
+
+		data1 = "# LOG:CAT=orderbooks_stats:MSG= "
+		data2 = " ".join(
+			key + ":" + str(value) for key, value in
+			symbol_orderbook_count_for_5_minutes.items() if
+			value != 0)
+		sys.stdout.write(data1 + data2)
+		sys.stdout.write("\n")
+		for key in symbol_orderbook_count_for_5_minutes:
+			symbol_orderbook_count_for_5_minutes[key] = 0
+
+		await asyncio.sleep(300)
 
 async def socket(symbol):
 	# create connection with server via base ws url
@@ -84,12 +106,14 @@ async def socket(symbol):
 
 async def handler():
 	meta_data = asyncio.create_task(metadata())
-	tasks = []
+	stats_data = asyncio.create_task(stats())
+	tasks=[]
 	for symbol in list_currencies:
 		tasks.append(asyncio.create_task(socket(symbol)))
-		await asyncio.sleep(0.1)
+		await asyncio.sleep(1)
 
 	await asyncio.wait(tasks)
+
 
 async def main():
 	await handler()
