@@ -11,11 +11,9 @@ answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 WS_URL = 'wss://ws.bit2me.com/v1/trading'
-is_subscribed = {}
-# check if the certain symbol pair is available
+
 for element in currencies:
-	list_currencies.append(element["symbol"])
-	is_subscribed[element["symbol"]] = False
+		list_currencies.append(element["symbol"])
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -29,21 +27,11 @@ for i in range(len(list_currencies)):
 
 
 async def subscribe(ws):
-	while True:
-		for key, value in is_subscribed.items():
+	for pair in list_currencies:
+		await ws.send(json.dumps({"event": "subscribe", "subscription": {"name": f"{pair}"}}))
+		await asyncio.sleep(0.5)
 
-			if value == False:
-
-				# create the subscription for trades
-				await ws.send(json.dumps({"event":"subscribe","subscription":{"name":f"{key}"}}))
-				await asyncio.sleep(0.1)
-
-
-		for el in list(is_subscribed):
-			is_subscribed[el] = False
-
-
-		await asyncio.sleep(2000)
+	await asyncio.sleep(300)
 
 
 # get metadata about each pair of symbols
@@ -155,11 +143,9 @@ async def main():
 					try:
 						# if received data is about trades
 						if dataJSON['event'] == 'last-trade':
-							is_subscribed[dataJSON['pair']] = True
 							get_trades(dataJSON)
 						# if received data is about updates
 						elif dataJSON['event'] == 'order-book':
-							is_subscribed[dataJSON['pair']] = True
 							get_order_books(dataJSON, depth_update=False)
 						else:
 							pass
