@@ -17,9 +17,14 @@ for elem in currencies["result"]:
 	list_currencies.append(elem["symbol"])
 
 #for trades count stats
-symbol_count_for_5_minutes = {}
+symbol_trade_count_for_5_minutes = {}
 for i in range(len(list_currencies)):
-	symbol_count_for_5_minutes[list_currencies[i]] = 0
+	symbol_trade_count_for_5_minutes[list_currencies[i]] = 0
+
+#for orderbooks count stats
+symbol_orderbook_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_orderbook_count_for_5_minutes[list_currencies[i]] = 0
 
 async def subscribe(ws, symbol):
 	id1 = 1
@@ -72,12 +77,13 @@ def get_trades(var):
 	print('!', get_unix_time(), trade_data["result"]["pair"],
 		  "B" if trade_data["result"]["side"] == "BUY" else "S", trade_data["result"]['price'],
 		  trade_data["result"]["quantity"], flush=True)
-	symbol_count_for_5_minutes[trade_data["result"]["pair"]] += 1
+	symbol_trade_count_for_5_minutes[trade_data["result"]["pair"]] += 1
 
 
 def get_order_books(var, update):
 	order_data = var
 	if 'sell' in order_data['result'] and len(order_data["result"]["sell"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data['result']['symbol']] += len(order_data["result"]["sell"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['result']['symbol'] + ' S '
 		pq = "|".join(el["quantity"] + "@" + el["price"] for el in order_data["result"]["sell"])
 		answer = order_answer + pq
@@ -88,6 +94,7 @@ def get_order_books(var, update):
 			print(answer + " R")
 
 	if 'buy' in order_data['result'] and len(order_data["result"]["buy"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data['result']['symbol']] += len(order_data["result"]["buy"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['result']['symbol'] + ' B '
 		pq = "|".join(el["quantity"] + "@" + el["price"] for el in order_data["result"]["buy"])
 		answer = order_answer + pq
@@ -97,16 +104,27 @@ def get_order_books(var, update):
 		else:
 			print(answer + " R")
 
+# trade and orderbook stats output
 async def stats():
 	while True:
 		data1 = "# LOG:CAT=trades_stats:MSG= "
 		data2 = " ".join(
-			key.upper() + ":" + str(value) for key, value in symbol_count_for_5_minutes.items() if
+			key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if
 			value != 0)
 		sys.stdout.write(data1 + data2)
 		sys.stdout.write("\n")
-		for key in symbol_count_for_5_minutes:
-			symbol_count_for_5_minutes[key] = 0
+		for key in symbol_trade_count_for_5_minutes:
+			symbol_trade_count_for_5_minutes[key] = 0
+
+		data3 = "# LOG:CAT=orderbooks_stats:MSG= "
+		data4 = " ".join(
+			key.upper() + ":" + str(value) for key, value in
+			symbol_orderbook_count_for_5_minutes.items() if
+			value != 0)
+		sys.stdout.write(data3 + data4)
+		sys.stdout.write("\n")
+		for key in symbol_orderbook_count_for_5_minutes:
+			symbol_orderbook_count_for_5_minutes[key] = 0
 
 		await asyncio.sleep(300)
 
