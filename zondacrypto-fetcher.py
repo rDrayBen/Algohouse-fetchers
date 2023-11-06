@@ -99,22 +99,17 @@ def get_order_books(var, update):
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['message']['changes'][0]['marketCode'] + ' S '
 		pq = "|".join(el["state"]["ca"] + "@" + el["state"]["ra"] for el in order_data["message"]["changes"])
 		answer = order_answer + pq
-		# checking if the input data is full orderbook or just update
-		if (update == True):
-			print(answer)
-		else:
-			print(answer + " R")
+
+		print(answer)
+
 
 	if order_data['message']['changes'][0]["entryType"] == 'Sell' and len(order_data["message"]["changes"][0]["state"]) != 0:
 		symbol_orderbook_count_for_5_minutes[order_data['message']['changes'][0]['marketCode']] += len(order_data["message"]["changes"][0]["state"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['message']['changes'][0]['marketCode'] + ' B '
 		pq = "|".join(el["state"]["ca"] + "@" + el["state"]["ra"] for el in order_data["message"]["changes"])
 		answer = order_answer + pq
-		# checking if the input data is full orderbook or just update
-		if (update == True):
-			print(answer)
-		else:
-			print(answer + " R")
+
+		print(answer)
 
 
 async def heartbeat(ws):
@@ -147,7 +142,6 @@ async def main():
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
-
 
 				# trade and orderbook stats output
 				if abs(time.time() - tradestats_time) >= 300:
@@ -184,10 +178,6 @@ async def main():
 						if "orderbook" in dataJSON['topic'] and dataJSON["message"]["changes"][0]["action"] == 'update':
 							is_subscribed_orderbooks[dataJSON['message']['changes'][0]['marketCode']] = True
 							get_order_books(dataJSON, update=True)
-
-						# if received data is about orderbooks
-						# if dataJSON['method'] == 'snapshotOrderbook':
-						# 	get_order_books(dataJSON, update=False)
 
 						else:
 							pass
