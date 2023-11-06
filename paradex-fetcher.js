@@ -288,8 +288,10 @@ Metadata();
 stats();
 setInterval(stats, 300000);
 ConnectTrades();
-var connections = [];
-for(let pair of currencies){
-    connections.push(ConnectOrders(pair));
-    await new Promise((resolve) => setTimeout(resolve, 50));
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    var connections = [];
+    for(let pair of currencies){
+        connections.push(ConnectOrders(pair));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
 }
