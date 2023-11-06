@@ -63,6 +63,7 @@ def get_unix_time():
 def get_trades(var, currency):
 	trade_data = var
 	if len(trade_data[f"{currency}.trades"]["trades"]) != 0:
+		is_subscribed_trades[currency] = True
 		for elem in trade_data[f"{currency}.trades"]["trades"]:
 			print('!', get_unix_time(), currency,
 				  "B" if elem["taker_type"] == "buy" else "S", elem['price'],

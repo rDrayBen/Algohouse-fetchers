@@ -11,9 +11,13 @@ answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 WS_URL = 'wss://api.zondacrypto.exchange/websocket/'
+is_subscribed_orderbooks = {}
+is_subscribed_trades = {}
 
 for key, value in currencies["items"].items():
 	list_currencies.append(key.lower())
+	is_subscribed_trades[key.lower()] = False
+	is_subscribed_orderbooks[key.lower()] = False
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -36,6 +40,39 @@ async def metadata():
 		print(pair_data, flush=True)
 
 	print('@MDEND')
+
+
+async def subscribe(ws):
+	while True:
+		for key, value in is_subscribed_trades.items():
+
+			if value == False:
+
+				# create the subscription for trades
+				await ws.send(json.dumps({
+					"action": "subscribe-public",
+					"module": "trading",
+					"path": f"transactions/{list_currencies[i]}"
+				}))
+
+				# resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
+				if is_subscribed_orderbooks[key] == False and os.getenv("SKIP_ORDERBOOKS") == None:
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"action": "subscribe-public",
+						"module": "trading",
+						"path": f"orderbook/{list_currencies[i]}"
+					}))
+
+					await asyncio.sleep(0.1)
+
+		for el in list(is_subscribed_trades):
+			is_subscribed_trades[el] = False
+
+		for el in list(is_subscribed_orderbooks):
+			is_subscribed_orderbooks[el] = False
+
+		await asyncio.sleep(2000)
 
 
 def get_unix_time():
@@ -101,21 +138,6 @@ async def main():
 			# create task to get metadata about each pair of symbols
 			meta_data = asyncio.create_task(metadata())
 
-			for i in range(len(list_currencies)):
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"action": "subscribe-public",
-					"module": "trading",
-					"path": f"transactions/{list_currencies[i]}"
-				}))
-
-				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
-					# create the subscription for full orderbooks and updates
-					await ws.send(json.dumps({
-						"action": "subscribe-public",
-						"module": "trading",
-						"path": f"orderbook/{list_currencies[i]}"
-					}))
 
 			while True:
 				data = await ws.recv()
