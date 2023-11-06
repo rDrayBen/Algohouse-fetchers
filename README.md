@@ -127,3 +127,4 @@ Here are fetchers for listed down exchanges to get trades, snapshots and deltas 
 124. bytedex(python, websocket)
 125. Mufex(javascript, websocket)
 126. Paradex(javascript, websocket)
+127. Aevo(javascript, websocket)
