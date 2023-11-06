@@ -150,16 +150,28 @@ async function Connect(pair){
               console.log('Ping request sent');
             }
           }, 10000);
-        // subscribe to trades and orders for given instrument
-        ws.send(JSON.stringify(
-            {
-                "args": [
-                    `books-25.${pair}`,
-                    `trades-100.${pair}`
-                ],
-                "op": "subscribe"
-            }
-        ));
+        if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+            // subscribe to trades and orders for given instrument
+            ws.send(JSON.stringify(
+                {
+                    "args": [
+                        `books-25.${pair}`,
+                        `trades-100.${pair}`
+                    ],
+                    "op": "subscribe"
+                }
+            ));
+        }else{
+            // subscribe to trades for given instrument
+            ws.send(JSON.stringify(
+                {
+                    "args": [
+                        `trades-100.${pair}`
+                    ],
+                    "op": "subscribe"
+                }
+            ));
+        }
     };
 
 
