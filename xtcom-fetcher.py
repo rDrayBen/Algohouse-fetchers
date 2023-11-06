@@ -59,6 +59,7 @@ async def subscribe(ws):
 					"id": "1"
 				}))
 
+				await asyncio.sleep(0.01)
 
 		for key, value in is_subscribed_orderbooks.items():
 
