@@ -11,10 +11,14 @@ answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 WS_URL = 'wss://ws.nonkyc.io'
+is_subscribed_orderbooks = {}
+is_subscribed_trades = {}
 
 for element in currencies:
 	if element["type"] == "spot":
 		list_currencies.append(element["base"] + "/" + element["quote"])
+		is_subscribed_trades[element["base"] + "/" + element["quote"]] = False
+		is_subscribed_orderbooks[element["base"] + "/" + element["quote"]] = False
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -37,6 +41,42 @@ async def metadata():
 		print(pair_data, flush=True)
 
 	print('@MDEND')
+
+
+async def subscribe(ws):
+	while True:
+		for key, value in is_subscribed_trades.items():
+
+			if value == False:
+
+				# create the subscription for trades
+				await ws.send(json.dumps({
+					"method": "subscribeTrades",
+					"params": {
+						"symbol": f"{list_currencies[i]}"
+					}
+				}))
+
+				#resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
+				if is_subscribed_orderbooks[key] == False and os.getenv("SKIP_ORDERBOOKS") == None:
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"method": "subscribeOrderbook",
+						"params": {
+							"symbol": f"{list_currencies[i]}",
+							"limit": 100
+						},
+						"id": 123
+					}))
+
+					await asyncio.sleep(0.1)
+		for el in list(is_subscribed_trades):
+			is_subscribed_trades[el] = False
+
+		for el in list(is_subscribed_orderbooks):
+			is_subscribed_orderbooks[el] = False
+
+		await asyncio.sleep(2000)
 
 
 def get_unix_time():
@@ -94,31 +134,16 @@ async def main():
 			start_time = time.time()
 			tradestats_time = start_time
 
+			# create task to subscribe to symbols` pair
+			subscription = asyncio.create_task(subscribe(ws))
+
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
 			# create task to get metadata about each pair of symbols
 			meta_data = asyncio.create_task(metadata())
 
-			for i in range(len(list_currencies)):
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"method": "subscribeTrades",
-					"params": {
-						"symbol": f"{list_currencies[i]}"
-					}
-				}))
 
-				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
-					# create the subscription for full orderbooks and updates
-					await ws.send(json.dumps({
-						"method": "subscribeOrderbook",
-						"params": {
-							"symbol": f"{list_currencies[i]}",
-							"limit": 100
-						},
-						"id": 123
-					}))
 
 			while True:
 				data = await ws.recv()
@@ -154,14 +179,17 @@ async def main():
 
 						# if received data is about trades
 						if dataJSON['method'] == 'updateTrades':
+							is_subscribed_trades[dataJSON['params']['symbol']] = True
 							get_trades(dataJSON)
 
 						# if received data is about updates
 						if dataJSON['method'] == 'updateOrderbook':
+							is_subscribed_orderbooks[dataJSON['params']['symbol']] = True
 							get_order_books(dataJSON, update=True)
 
 						# if received data is about orderbooks
 						if dataJSON['method'] == 'snapshotOrderbook':
+							is_subscribed_orderbooks[dataJSON['params']["symbol"]] = True
 							get_order_books(dataJSON, update=False)
 
 						else:
