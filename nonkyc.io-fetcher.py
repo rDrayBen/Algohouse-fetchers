@@ -143,8 +143,6 @@ async def main():
 			# create task to get metadata about each pair of symbols
 			meta_data = asyncio.create_task(metadata())
 
-
-
 			while True:
 				data = await ws.recv()
 
