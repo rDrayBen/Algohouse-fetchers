@@ -52,7 +52,7 @@ async def subscribe(ws):
 				await ws.send(json.dumps({
 					"action": "subscribe-public",
 					"module": "trading",
-					"path": f"transactions/{list_currencies[i]}"
+					"path": f"transactions/{key}"
 				}))
 
 				# resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
@@ -61,7 +61,7 @@ async def subscribe(ws):
 					await ws.send(json.dumps({
 						"action": "subscribe-public",
 						"module": "trading",
-						"path": f"orderbook/{list_currencies[i]}"
+						"path": f"orderbook/{key}"
 					}))
 
 					await asyncio.sleep(0.1)
@@ -84,6 +84,7 @@ def get_trades(var):
 	if 'message' in trade_data:
 		parts = trade_data["topic"].split("/")
 		symbol = parts[-1].upper()
+		is_subscribed_trades[symbol] = True
 		for elem in trade_data["message"]["transactions"]:
 			print('!', get_unix_time(), symbol,
 				  "B" if elem["ty"] == "buy" else "S", elem['r'],
@@ -132,6 +133,9 @@ async def main():
 			start_time = time.time()
 			tradestats_time = start_time
 
+			# create task to subscribe to symbols` pair
+			subscription = asyncio.create_task(subscribe(ws))
+
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
@@ -143,6 +147,7 @@ async def main():
 				data = await ws.recv()
 
 				dataJSON = json.loads(data)
+
 
 				# trade and orderbook stats output
 				if abs(time.time() - tradestats_time) >= 300:
@@ -177,6 +182,7 @@ async def main():
 
 						# if received data is about updates
 						if "orderbook" in dataJSON['topic'] and dataJSON["message"]["changes"][0]["action"] == 'update':
+							is_subscribed_orderbooks[dataJSON['message']['changes'][0]['marketCode']] = True
 							get_order_books(dataJSON, update=True)
 
 						# if received data is about orderbooks
