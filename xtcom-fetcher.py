@@ -59,7 +59,14 @@ async def subscribe(ws):
 					"id": "1"
 				}))
 
-				if is_subscribed_orderbooks[key] == False:
+				await asyncio.sleep(0.1)
+
+		for key, value in is_subscribed_orderbooks.items():
+
+			if value == False:
+
+				# resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
+				if is_subscribed_orderbooks[key] == False and os.getenv("SKIP_ORDERBOOKS") == None:
 					await ws.send(json.dumps({
 						"method": "subscribe",
 						"params": [
@@ -78,6 +85,7 @@ async def subscribe(ws):
 					}))
 
 					await asyncio.sleep(0.1)
+
 		for el in list(is_subscribed_trades):
 			is_subscribed_trades[el] = False
 
