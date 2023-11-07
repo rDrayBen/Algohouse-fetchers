@@ -75,6 +75,8 @@ async def subscribe(ws):
 						"id": "2"
 					}))
 
+					await asyncio.sleep(0.01)
+
 					# create the subscription for updates
 					await ws.send(json.dumps({
 						"method": "subscribe",
@@ -138,10 +140,8 @@ def get_order_books(var, depth_update):
 # process the situations when the server awaits "ping" request
 async def heartbeat(ws):
 	while True:
-		await ws.send(json.dumps({
-			"event": "ping"
-		}))
-		await asyncio.sleep(5)
+		await ws.ping()
+		await asyncio.sleep(15)
 
 
 async def main():

@@ -43,15 +43,14 @@ def get_unix_time():
 	return round(time.time() * 1000)
 
 
-def get_trades(var,start_time):
+def get_trades(var, start_time):
 	trade_data = var
 	elapsed_time = time.time() - start_time
 	if 'data' in trade_data and elapsed_time > 7:
-		for elem in trade_data["data"]:
-			print('!', get_unix_time(), trade_data["pair"],
-				  "S" if elem["isBuyer"] == "False" else "B", elem['price'],
-				  elem["amount"], flush=True)
-			symbol_trade_count_for_5_minutes[trade_data["pair"]] += 1
+		print('!', get_unix_time(), trade_data["pair"],
+			"S" if trade_data["data"][0]["isBuyer"] == "False" else "B", trade_data["data"][0]['price'],
+				trade_data["data"][0]["amount"], flush=True)
+		symbol_trade_count_for_5_minutes[trade_data["pair"]] += 1
 
 
 def get_order_books(var):

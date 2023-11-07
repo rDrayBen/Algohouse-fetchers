@@ -131,7 +131,7 @@ async def stats():
 
 async def socket(symbol):
 	# create connection with server via base ws url
-	async for ws in websockets.connect(WS_URL):
+	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
 
 			subscription = asyncio.create_task(subscribe(ws, symbol))
@@ -173,7 +173,7 @@ async def socket(symbol):
 async def handler():
 	meta_data = asyncio.create_task(metadata())
 	stats_data = asyncio.create_task(stats())
-	tasks=[]
+	tasks = []
 	for symbol in list_currencies:
 		tasks.append(asyncio.create_task(socket(symbol)))
 		await asyncio.sleep(1)

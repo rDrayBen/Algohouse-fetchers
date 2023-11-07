@@ -84,7 +84,7 @@ async def heartbeat(ws):
 		await ws.send(json.dumps({
 			"event": "ping"
 		}))
-		await asyncio.sleep(5)
+		await asyncio.sleep(60)
 
 
 async def main():
