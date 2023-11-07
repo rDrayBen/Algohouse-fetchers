@@ -4,6 +4,7 @@ import websockets
 import time
 import asyncio
 import sys
+import os
 
 # get all available symbol pairs
 currency_url = 'https://gateway.bit2me.com/v1/trading/market-config'
@@ -146,7 +147,8 @@ async def main():
 							get_trades(dataJSON)
 						# if received data is about updates
 						elif dataJSON['event'] == 'order-book':
-							get_order_books(dataJSON, depth_update=False)
+							if os.getenv("SKIP_ORDERBOOKS") == None:
+								get_order_books(dataJSON, depth_update=False)
 						else:
 							pass
 					except Exception as ex:
