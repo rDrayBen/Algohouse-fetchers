@@ -3,31 +3,34 @@ import fetch from 'node-fetch';
 import getenv from 'getenv';
 
 // define the websocket and REST URLs
-const wsUrl = 'wss://ws2.mufex.finance/realtime_public';
-const restUrl = "https://www.mufex.finance/mapi/trade/private/v1/position/lp-list-all";
+const wsUrl = 'wss://ws.aevo.xyz/';
+const restUrl = "https://api.aevo.xyz/markets";
 
 const response = await fetch(restUrl);
 //extract JSON from the http response
 const myJson = await response.json(); 
 var currencies = [];
-var request = [];
 var trades_count_5min = {};
 var orders_count_5min = {};
 
 // extract symbols from JSON returned information
-for(let i = 0; i < myJson['data']['list'].length; ++i){
-    currencies.push(myJson['data']['list'][i]['data']['symbol']);
+for(let i = 0; i < myJson.length; ++i){
+    if(myJson[i]['is_active'] && myJson[i]['instrument_type'] === 'PERPETUAL'){
+        currencies.push(myJson[i]['instrument_name']);
+    }
 }
 
 
 // print metadata about pairs
 async function Metadata(){
-    myJson['data']['list'].forEach((item)=>{
-        trades_count_5min[item['data']['symbol']] = 0;
-        orders_count_5min[item['data']['symbol']] = 0;
-        let pair_data = '@MD ' + item['data']['symbol'] + ' spot ' + 
-        item['data']['symbol'].replace(item['data']['coin'], '') + ' ' + item['data']['coin'] + ' ' + '-1' +  ' 1 1 0 0';
-        console.log(pair_data);
+    myJson.forEach((item)=>{
+        if(item['is_active'] && item['instrument_type'] === 'PERPETUAL'){
+            trades_count_5min[item['underlying_asset'] + '-USD'] = 0;
+            orders_count_5min[item['underlying_asset'] + '-USD'] = 0;
+            let pair_data = '@MD ' + item['underlying_asset'] + '-USD' + ' spot ' + 
+            item['underlying_asset'] + ' ' + 'USD' + ' ' + (item['price_step'].split('0').length - 1) +  ' 1 1 0 0';
+            console.log(pair_data);
+        }
     })
     console.log('@MDEND')
 }
@@ -60,50 +63,51 @@ Number.prototype.noExponents = function() {
 
 
 async function getTrades(message){
-    trades_count_5min[message['data']['s']] += message['data']['d'].length;
-    message['data']['d'].forEach((trade)=>{
-        var trade_output = '! ' + getUnixTime() + ' ' + message['data']['s'] + ' ' + 
-            (trade[4] === 'b' ? 'B' : 'S') + ' ' + parseFloat(trade[1]).noExponents() + ' ' + parseFloat(trade[2]).noExponents();
-        console.log(trade_output);
-    })
+    trades_count_5min[message['data']['instrument_name'].replace('PERP', 'USD')] += 1;
+    var trade_output = '! ' + getUnixTime() + ' ' + message['data']['instrument_name'].replace('PERP', 'USD') + ' ' + 
+        message['data']['side'][0].toUpperCase() + ' ' + parseFloat(message['data']['price']).noExponents() +
+         ' ' + parseFloat(message['data']['amount']).noExponents();
+    console.log(trade_output);
 }
 
 
 async function getOrders(message, update){
+    
+    var bids_order_answer = '$ ' + getUnixTime() + ' ' + message['data']['instrument_name'].replace('PERP', 'USD') + ' B '
+    var bids_pq = '';
+    var asks_order_answer = '$ ' + getUnixTime() + ' ' + message['data']['instrument_name'].replace('PERP', 'USD') + ' S '
+    var asks_pq = '';
     // check if bids array is not Null
-    if(message['data']['b'].length > 0){
-        orders_count_5min[message['data']['s']] += message['data']['b'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['data']['s'] + ' B '
-        var pq = '';
-        for(let i = 0; i < message['data']['b'].length; i++){
-            pq += parseFloat(message['data']['b'][i][1]).noExponents() + '@' + parseFloat(message['data']['b'][i][0]).noExponents() + '|';
+    if(message['data']['bids'].length > 0){
+
+        orders_count_5min[message['data']['instrument_name'].replace('PERP', 'USD')] += message['data']['bids'].length;
+
+        for(let i = 0; i < message['data']['bids'].length; i++){
+            bids_pq += parseFloat(message['data']['bids'][i][1]).noExponents() + 
+                '@' + parseFloat(message['data']['bids'][i][0]).noExponents() + '|';
         }
-        pq = pq.slice(0, -1);
-        // check if the input data is full order book or just update
-        if (update){
-            console.log(order_answer + pq);
-        }
-        else{
-            console.log(order_answer + pq + ' R');
-        }
+        bids_pq = bids_pq.slice(0, -1);
     }
 
-    // check if asks array is not Null
-    if(message['data']['a'].length > 0){
-        orders_count_5min[message['data']['s']] += message['data']['a'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['data']['s'] + ' S '
-        var pq = '';
-        for(let i = 0; i < message['data']['a'].length; i++){
-            pq += parseFloat(message['data']['a'][i][1]).noExponents() + '@' + parseFloat(message['data']['a'][i][0]).noExponents() + '|';
+    if(message['data']['asks'].length > 0){
+
+        orders_count_5min[message['data']['instrument_name'].replace('PERP', 'USD')] += message['data']['asks'].length;
+
+        for(let i = 0; i < message['data']['asks'].length; i++){
+            asks_pq += parseFloat(message['data']['asks'][i][1]).noExponents() +
+                '@' + parseFloat(message['data']['asks'][i][0]).noExponents() + '|';
         }
-        pq = pq.slice(0, -1);
-        // check if the input data is full order book or just update
-        if (update){
-            console.log(order_answer + pq);
-        }
-        else{
-            console.log(order_answer + pq + ' R');
-        }
+        asks_pq = asks_pq.slice(0, -1);
+    }
+
+    // check if the input data is full order book or just update
+    if (update){
+        if(bids_pq !== '') console.log(bids_order_answer + bids_pq);
+        if(asks_pq !== '') console.log(asks_order_answer + asks_pq);
+    }
+    else{
+        if(bids_pq !== '') console.log(bids_order_answer + bids_pq + ' R');
+        if(asks_pq !== '') console.log(asks_order_answer + asks_pq + ' R');
     }
 }
 
@@ -134,7 +138,7 @@ async function stats(){
 }
 
 
-async function Connect(pair){
+async function Connect(pair, index){
     // create a new websocket instance
     var ws = new WebSocket(wsUrl);
     ws.onopen = function(e) {
@@ -143,32 +147,29 @@ async function Connect(pair){
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify(
                 {
-                    "op":"ping",
-                    "args":[getUnixTime()]
+                    "op": "ping"
                 }
               ));
               console.log('Ping request sent');
             }
-          }, 10000);
+          }, 15000);
+        ws.send(JSON.stringify(
+            {
+                "op": "subscribe",
+                "data": [
+                    `trades:${pair}`
+                ],
+                "id": index
+            }
+        ));
         if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
-            // subscribe to trades and orders for given instrument
             ws.send(JSON.stringify(
                 {
-                    "args": [
-                        `books-25.${pair}`,
-                        `trades-100.${pair}`
+                    "op": "subscribe",
+                    "data": [
+                        `orderbook:${pair}`
                     ],
-                    "op": "subscribe"
-                }
-            ));
-        }else{
-            // subscribe to trades for given instrument
-            ws.send(JSON.stringify(
-                {
-                    "args": [
-                        `trades-100.${pair}`
-                    ],
-                    "op": "subscribe"
+                    "id": index
                 }
             ));
         }
@@ -180,17 +181,13 @@ async function Connect(pair){
         try{
             // parse input data to JSON format
             let dataJSON = JSON.parse(event.data);
-            // console.log(dataJSON);
-            if (dataJSON['topic'].includes('trades') && dataJSON['type'] === 'delta') {
+            if (dataJSON['channel'].includes('trades')) {
                 getTrades(dataJSON);
             }
-            else if (dataJSON['topic'].includes('trades') && dataJSON['type'] === 'snapshot') {
-                // skip trading history
-            }
-            else if(dataJSON['topic'].includes('books') && dataJSON['type'] === 'snapshot'){
+            else if(dataJSON['channel'].includes('orderbook') && dataJSON['data']['type'] === 'snapshot'){
                 getOrders(dataJSON, false);
             }
-            else if(dataJSON['topic'].includes('books') && dataJSON['type'] === 'delta'){
+            else if(dataJSON['channel'].includes('orderbook') && dataJSON['data']['type'] === 'update'){
                 getOrders(dataJSON, true);
             }
             else {
@@ -222,11 +219,12 @@ async function Connect(pair){
     };
 }
 
+
 Metadata();
 stats();
 setInterval(stats, 300000);
 var connections = [];
-for(let pair of currencies){
-    connections.push(Connect(pair));
-    await new Promise((resolve) => setTimeout(resolve, 100));
+for(let [index, pair] of currencies.entries()){
+    connections.push(Connect(pair, index));
+    await new Promise((resolve) => setTimeout(resolve, 150));
 }

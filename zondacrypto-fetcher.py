@@ -11,9 +11,13 @@ answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 WS_URL = 'wss://api.zondacrypto.exchange/websocket/'
+is_subscribed_orderbooks = {}
+is_subscribed_trades = {}
 
 for key, value in currencies["items"].items():
 	list_currencies.append(key.lower())
+	is_subscribed_trades[key.lower()] = False
+	is_subscribed_orderbooks[key.lower()] = False
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -38,6 +42,39 @@ async def metadata():
 	print('@MDEND')
 
 
+async def subscribe(ws):
+	while True:
+		for key, value in is_subscribed_trades.items():
+
+			if value == False:
+
+				# create the subscription for trades
+				await ws.send(json.dumps({
+					"action": "subscribe-public",
+					"module": "trading",
+					"path": f"transactions/{key}"
+				}))
+
+				# resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
+				if is_subscribed_orderbooks[key] == False and os.getenv("SKIP_ORDERBOOKS") == None:
+					# create the subscription for full orderbooks and updates
+					await ws.send(json.dumps({
+						"action": "subscribe-public",
+						"module": "trading",
+						"path": f"orderbook/{key}"
+					}))
+
+					await asyncio.sleep(0.1)
+
+		for el in list(is_subscribed_trades):
+			is_subscribed_trades[el] = False
+
+		for el in list(is_subscribed_orderbooks):
+			is_subscribed_orderbooks[el] = False
+
+		await asyncio.sleep(2000)
+
+
 def get_unix_time():
 	return round(time.time() * 1000)
 
@@ -47,6 +84,7 @@ def get_trades(var):
 	if 'message' in trade_data:
 		parts = trade_data["topic"].split("/")
 		symbol = parts[-1].upper()
+		is_subscribed_trades[symbol] = True
 		for elem in trade_data["message"]["transactions"]:
 			print('!', get_unix_time(), symbol,
 				  "B" if elem["ty"] == "buy" else "S", elem['r'],
@@ -61,22 +99,17 @@ def get_order_books(var, update):
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['message']['changes'][0]['marketCode'] + ' S '
 		pq = "|".join(el["state"]["ca"] + "@" + el["state"]["ra"] for el in order_data["message"]["changes"])
 		answer = order_answer + pq
-		# checking if the input data is full orderbook or just update
-		if (update == True):
-			print(answer)
-		else:
-			print(answer + " R")
+
+		print(answer)
+
 
 	if order_data['message']['changes'][0]["entryType"] == 'Sell' and len(order_data["message"]["changes"][0]["state"]) != 0:
 		symbol_orderbook_count_for_5_minutes[order_data['message']['changes'][0]['marketCode']] += len(order_data["message"]["changes"][0]["state"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['message']['changes'][0]['marketCode'] + ' B '
 		pq = "|".join(el["state"]["ca"] + "@" + el["state"]["ra"] for el in order_data["message"]["changes"])
 		answer = order_answer + pq
-		# checking if the input data is full orderbook or just update
-		if (update == True):
-			print(answer)
-		else:
-			print(answer + " R")
+
+		print(answer)
 
 
 async def heartbeat(ws):
@@ -95,27 +128,15 @@ async def main():
 			start_time = time.time()
 			tradestats_time = start_time
 
+			# create task to subscribe to symbols` pair
+			subscription = asyncio.create_task(subscribe(ws))
+
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
 			# create task to get metadata about each pair of symbols
 			meta_data = asyncio.create_task(metadata())
 
-			for i in range(len(list_currencies)):
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"action": "subscribe-public",
-					"module": "trading",
-					"path": f"transactions/{list_currencies[i]}"
-				}))
-
-				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
-					# create the subscription for full orderbooks and updates
-					await ws.send(json.dumps({
-						"action": "subscribe-public",
-						"module": "trading",
-						"path": f"orderbook/{list_currencies[i]}"
-					}))
 
 			while True:
 				data = await ws.recv()
@@ -155,11 +176,8 @@ async def main():
 
 						# if received data is about updates
 						if "orderbook" in dataJSON['topic'] and dataJSON["message"]["changes"][0]["action"] == 'update':
+							is_subscribed_orderbooks[dataJSON['message']['changes'][0]['marketCode']] = True
 							get_order_books(dataJSON, update=True)
-
-						# if received data is about orderbooks
-						# if dataJSON['method'] == 'snapshotOrderbook':
-						# 	get_order_books(dataJSON, update=False)
 
 						else:
 							pass
