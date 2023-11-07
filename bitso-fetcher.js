@@ -139,18 +139,18 @@ async function Connect(){
     // create a new websocket instance
     var ws = new WebSocket(wsUrl);
     ws.onopen = function(e) {
-        
+        ws.ping();
         // create ping function to keep connection alive
-        setInterval(function() {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify(
-                {
-                    "type":"ka"
-                }
-              ));
-              console.log('Ping request sent');
-            }
-          }, 20000);
+        // setInterval(function() {
+        //     if (ws.readyState === WebSocket.OPEN) {
+        //       ws.send(JSON.stringify(
+        //         {
+        //             "type":"ka"
+        //         }
+        //       ));
+        //       console.log('Ping request sent');
+        //     }
+        //   }, 20000);
         // subscribe to trades and orders for all instruments
         currencies.forEach((pair)=>{
             ws.send(JSON.stringify(
