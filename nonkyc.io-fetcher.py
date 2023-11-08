@@ -57,19 +57,24 @@ async def subscribe(ws):
 					}
 				}))
 
-				#resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
-				if is_subscribed_orderbooks[key] == False and os.getenv("SKIP_ORDERBOOKS") == None:
-					# create the subscription for full orderbooks and updates
-					await ws.send(json.dumps({
-						"method": "subscribeOrderbook",
-						"params": {
-							"symbol": f"{list_currencies[i]}",
-							"limit": 100
-						},
-						"id": 123
-					}))
+				await asyncio.sleep(0.01)
 
-					await asyncio.sleep(0.1)
+		for key, value in is_subscribed_orderbooks.items():
+
+			#resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
+			if value == False and os.getenv("SKIP_ORDERBOOKS") == None:
+				# create the subscription for full orderbooks and updates
+				await ws.send(json.dumps({
+					"method": "subscribeOrderbook",
+					"params": {
+						"symbol": f"{list_currencies[i]}",
+						"limit": 100
+					},
+					"id": 123
+				}))
+
+				await asyncio.sleep(0.1)
+
 		for el in list(is_subscribed_trades):
 			is_subscribed_trades[el] = False
 
