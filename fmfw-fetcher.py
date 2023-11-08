@@ -126,7 +126,32 @@ async def heartbeat(ws):
 		await asyncio.sleep(5)
 
 
+#trade and orderbook stats output
+async def print_stats():
+	time_to_wait = (5 - ((round(time.time()) // 60) % 5)) * 60
+	if time_to_wait != 300:
+		await asyncio.sleep(time_to_wait)
+	while True:
+		data1 = "# LOG:CAT=trades_stats:MSG= "
+		data2 = " ".join(
+			key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if value != 0)
+		sys.stdout.write(data1 + data2)
+		sys.stdout.write("\n")
+		for key in symbol_trade_count_for_5_minutes:
+			symbol_trade_count_for_5_minutes[key] = 0
+
+		data3 = "# LOG:CAT=orderbooks_stats:MSG= "
+		data4 = " ".join(
+			key.upper() + ":" + str(value) for key, value in symbol_orderbook_count_for_5_minutes.items() if
+			value != 0)
+		sys.stdout.write(data3 + data4)
+		sys.stdout.write("\n")
+		for key in symbol_orderbook_count_for_5_minutes:
+			symbol_orderbook_count_for_5_minutes[key] = 0
+		await asyncio.sleep(300)
+
 async def main():
+	stats_task = asyncio.create_task(print_stats())
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
