@@ -109,20 +109,43 @@ def get_order_books(var, update):
 			print(answer)
 
 
+#trade and orderbook stats output
+async def print_stats():
+	time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
+	if time_to_wait != 300:
+		await asyncio.sleep(time_to_wait)
+	while True:
+		data1 = "# LOG:CAT=trades_stats:MSG= "
+		data2 = " ".join(
+			key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if value != 0)
+		sys.stdout.write(data1 + data2)
+		sys.stdout.write("\n")
+		for key in symbol_trade_count_for_5_minutes:
+			symbol_trade_count_for_5_minutes[key] = 0
+
+		data3 = "# LOG:CAT=orderbooks_stats:MSG= "
+		data4 = " ".join(
+			key.upper() + ":" + str(value) for key, value in symbol_orderbook_count_for_5_minutes.items() if
+			value != 0)
+		sys.stdout.write(data3 + data4)
+		sys.stdout.write("\n")
+		for key in symbol_orderbook_count_for_5_minutes:
+			symbol_orderbook_count_for_5_minutes[key] = 0
+		await asyncio.sleep(300)
+
 async def main():
+	# create task to get metadata about each pair of symbols
+	meta_data = asyncio.create_task(metadata())
+	# create task to get trades and orderbooks stats output
+	stats_task = asyncio.create_task(print_stats())
 	# create connection with server via base ws url
 	while True:
 		async for ws in websockets.connect(WS_URL, ping_interval=None):
 			try:
 				start_time = time.time()
-				tradestats_time = start_time
 
 				# create task to subscribe to symbols` pair
 				subscription = asyncio.create_task(subscribe(ws))
-
-				# create task to get metadata about each pair of symbols
-				meta_data = asyncio.create_task(metadata())
-
 
 				while True:
 					try:
@@ -130,29 +153,6 @@ async def main():
 
 						dataJSON = json.loads(data)
 
-						# trade and orderbook stats output
-						if abs(time.time() - tradestats_time) >= 300:
-							data1 = "# LOG:CAT=trades_stats:MSG= "
-							data2 = " ".join(
-								key.upper() + ":" + str(value) for key, value in
-								symbol_trade_count_for_5_minutes.items() if
-								value != 0)
-							sys.stdout.write(data1 + data2)
-							sys.stdout.write("\n")
-							for key in symbol_trade_count_for_5_minutes:
-								symbol_trade_count_for_5_minutes[key] = 0
-
-							data3 = "# LOG:CAT=orderbooks_stats:MSG= "
-							data4 = " ".join(
-								key.upper() + ":" + str(value) for key, value in
-								symbol_orderbook_count_for_5_minutes.items() if
-								value != 0)
-							sys.stdout.write(data3 + data4)
-							sys.stdout.write("\n")
-							for key in symbol_orderbook_count_for_5_minutes:
-								symbol_orderbook_count_for_5_minutes[key] = 0
-
-							tradestats_time = time.time()
 
 						if dataJSON["method"] == "stream":
 
