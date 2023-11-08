@@ -8,10 +8,6 @@ const wsUrl = 'wss://www.fameex.com/spot';
 const restUrl = "https://api.fameex.com/v1/common/symbols";
 
 
-// create a new websocket instance
-var ws = new WebSocket(wsUrl);
-
-
 const response = await fetch(restUrl);
 //extract JSON from the http response
 const myJson = await response.json(); 
@@ -71,10 +67,10 @@ async function getOrders(message, update){
         pq = pq.slice(0, -1);
         // check if the input data is full order book or just update
         if (update){
-            console.log(order_answer + pq)
+            console.log(order_answer + pq);
         }
         else{
-            console.log(order_answer + pq + ' R')
+            console.log(order_answer + pq + ' R');
         }
     }
 
@@ -89,10 +85,10 @@ async function getOrders(message, update){
         pq = pq.slice(0, -1);
         // check if the input data is full order book or just update
         if (update){
-            console.log(order_answer + pq)
+            console.log(order_answer + pq);
         }
         else{
-            console.log(order_answer + pq + ' R')
+            console.log(order_answer + pq + ' R');
         }
     }
 }
@@ -122,12 +118,6 @@ async function stats(){
         console.log(stat_line);
     }
 }
-
-
-var wsTradesArray = [];
-for(let i = 0; i < currencies.length; i++){
-    wsTradesArray.push(ConnectTrades(i));
-}
   
 
 async function ConnectTrades(index){
@@ -137,7 +127,16 @@ async function ConnectTrades(index){
     // call this func when first opening connection
     wsTrade.onopen = function(e) {
         // create ping function to keep connection alive
-        wsTrade.ping();
+        setInterval(function() {
+            if (wsTrade.readyState === WebSocket.OPEN) {
+              wsTrade.send(JSON.stringify(
+                {
+                    "op": "ping"
+                }
+              ));
+              console.log('Ping request sent');
+            }
+          }, 10000);
         
         // sub for orders
         wsTrade.send(JSON.stringify(
@@ -196,19 +195,21 @@ async function ConnectTrades(index){
 }
     
 
-if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
-    var wsDepthArray = [];
-    for(let i = 0; i < currencies.length; i++){
-        wsDepthArray.push(ConnectDepth(i));
-    }
-} 
-
 async function ConnectDepth(index){
     var wsDepth = new WebSocket(wsUrl);
     // call this func when first opening connection
     wsDepth.onopen = function(e) {
         // create ping function to keep connection alive
-        wsDepth.ping();
+        setInterval(function() {
+            if (wsDepth.readyState === WebSocket.OPEN) {
+              wsDepth.send(JSON.stringify(
+                {
+                    "op": "ping"
+                }
+              ));
+              console.log('Ping request sent');
+            }
+          }, 10000);
         
         // sub for orders
         wsDepth.send(JSON.stringify(
@@ -270,3 +271,18 @@ async function ConnectDepth(index){
 Metadata();
 stats();
 setInterval(stats, 300000);
+
+var wsTradesArray = [];
+for(let i = 0; i < currencies.length; i++){
+    wsTradesArray.push(ConnectTrades(i));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+}
+
+
+if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+    var wsDepthArray = [];
+    for(let i = 0; i < currencies.length; i++){
+        wsDepthArray.push(ConnectDepth(i));
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+} 
