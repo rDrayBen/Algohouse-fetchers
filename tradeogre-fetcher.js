@@ -167,8 +167,6 @@ async function Connect(pair){
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
         }
-        
-        
     };
 
 
@@ -177,7 +175,7 @@ async function Connect(pair){
         if (event.wasClean) {
             console.log(`Connection closed with code ${event.code} and reason ${event.reason}`);
         } else {
-            console.log('Connection lost');
+            console.log('Connection lost with pair', pair);
             setTimeout(async function() {
                 Connect(pair);
                 }, 500);
@@ -197,5 +195,6 @@ var connections = [];
 
 for(let pair of currencies){
     connections.push(await Connect(pair));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 }
 
