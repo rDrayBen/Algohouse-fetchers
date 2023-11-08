@@ -59,18 +59,16 @@ async def subscribe(ws):
 
 		for key, value in is_subscribed_orderbooks.items():
 
-			if value == False:
+			# resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
+			if value == False and os.getenv("SKIP_ORDERBOOKS") == None:
+				# create the subscription for full orderbooks and updates
+				await ws.send(json.dumps({
+					"action": "subscribe-public",
+					"module": "trading",
+					"path": f"orderbook/{key}"
+				}))
 
-				# resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
-				if is_subscribed_orderbooks[key] == False and os.getenv("SKIP_ORDERBOOKS") == None:
-					# create the subscription for full orderbooks and updates
-					await ws.send(json.dumps({
-						"action": "subscribe-public",
-						"module": "trading",
-						"path": f"orderbook/{key}"
-					}))
-
-					await asyncio.sleep(0.1)
+				await asyncio.sleep(0.1)
 
 		for el in list(is_subscribed_trades):
 			is_subscribed_trades[el] = False
