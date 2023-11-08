@@ -55,6 +55,12 @@ async def subscribe(ws):
 					"path": f"transactions/{key}"
 				}))
 
+				await asyncio.sleep(0.01)
+
+		for key, value in is_subscribed_orderbooks.items():
+
+			if value == False:
+
 				# resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
 				if is_subscribed_orderbooks[key] == False and os.getenv("SKIP_ORDERBOOKS") == None:
 					# create the subscription for full orderbooks and updates
