@@ -168,7 +168,7 @@ async def print_stats():
 		sys.stdout.write("\n")
 		for key in symbol_orderbook_count_for_5_minutes:
 			symbol_orderbook_count_for_5_minutes[key] = 0
-
+		await asyncio.sleep(300)
 
 
 async def main():
