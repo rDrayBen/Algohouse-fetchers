@@ -164,7 +164,7 @@ async function Connect(pair){
               ));
               console.log('Ping request sent');
             }
-          }, 3000);
+          }, 10000);
         // subscribe to trades and orders for all instruments
         ws.send(JSON.stringify(
             {
