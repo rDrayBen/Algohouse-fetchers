@@ -148,7 +148,8 @@ async def heartbeat(ws):
 
 #trade and orderbook stats output
 async def print_stats():
-	time_to_wait = (5 - ((round(time.time()) // 60) % 5)) * 60
+	time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
+	await asyncio.sleep(time_to_wait)
 	if time_to_wait != 300:
 		await asyncio.sleep(time_to_wait)
 	while True:
@@ -172,8 +173,11 @@ async def print_stats():
 
 
 async def main():
-	# create connection with server via base ws url
+	# create task to get metadata about each pair of symbols
+	meta_data = asyncio.create_task(metadata())
+	# create task to get trades and orderbooks stats output
 	stats_task = asyncio.create_task(print_stats())
+	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
 			start_time = time.time()
@@ -184,8 +188,7 @@ async def main():
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
-			# create task to get metadata about each pair of symbols
-			meta_data = asyncio.create_task(metadata())
+
 
 			print(meta_data)
 
