@@ -133,6 +133,7 @@ async function stats(){
     if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
         console.log(stat_line);
     }
+    setTimeout(stats, 300000);
 }
 
 
@@ -208,6 +209,5 @@ async function Connect(){
 }
 
 Metadata();
-stats();
-setInterval(stats, 300000);
+setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 await Connect();
