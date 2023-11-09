@@ -16,6 +16,7 @@ var orders_count_5min = {};
 var temp = [];
 temp = Object.keys(myJson['jpy']);
 
+
 // extract symbols from JSON returned information
 for(let i = 0; i < temp.length; ++i){
     currencies.push(temp[i] + '_jpy');
@@ -173,6 +174,7 @@ async function stats(){
     if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
         console.log(stat_line);
     }
+    setTimeout(stats, 300000);
 }
 
 
@@ -291,8 +293,7 @@ async function ConnectDeltas(){
 
 
 Metadata();
-stats();
-setInterval(stats, 300000);
+setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 ConnectTrades();
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
     for(let pair of currencies){
