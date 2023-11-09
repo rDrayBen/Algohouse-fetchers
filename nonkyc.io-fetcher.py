@@ -172,13 +172,11 @@ async def socket(symbol):
 
 						# if received data is about updates
 						if dataJSON['method'] == 'updateOrderbook':
-							print("-----")
 							is_subscribed_orderbooks[dataJSON['params']['symbol']] = True
 							get_order_books(dataJSON, update=True)
 
 						# if received data is about orderbooks
 						if dataJSON['method'] == 'snapshotOrderbook':
-							print("++++++")
 							is_subscribed_orderbooks[dataJSON['params']["symbol"]] = True
 							get_order_books(dataJSON, update=False)
 
