@@ -51,12 +51,12 @@ def get_trades(var):
 		symbol_trade_count_for_5_minutes[trade_data["symbol"]] += 1
 
 
-def get_order_books(var, update):
+def get_order_books(var):
 	order_data = var
 	if 'asks' in order_data["data"] and len(order_data["data"]["asks"]) != 0:
 		symbol_orderbook_count_for_5_minutes[order_data["symbol"]] += len(order_data["data"]["asks"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data["symbol"] + ' S '
-		pq = "|".join(str(el[1]) + "@" + str(el[0]) for el in order_data["data"]["asks"])
+		pq = "|".join(str(el[1]) + "@" + str("{:.8f}".format(el[0])) for el in order_data["data"]["asks"])
 		answer = order_answer + pq
 
 		print(answer + " R")
@@ -64,7 +64,7 @@ def get_order_books(var, update):
 	if 'bids' in order_data["data"] and len(order_data["data"]["bids"]) != 0:
 		symbol_orderbook_count_for_5_minutes[order_data["symbol"]] += len(order_data["data"]["bids"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data["symbol"] + ' B '
-		pq = "|".join(str(el[1]) + "@" + str(el[0]) for el in order_data["data"]["bids"])
+		pq = "|".join(str(el[1]) + "@" + str("{:.8f}".format(el[0])) for el in order_data["data"]["bids"])
 		answer = order_answer + pq
 
 		print(answer + " R")
@@ -72,10 +72,8 @@ def get_order_books(var, update):
 
 async def heartbeat(ws):
 	while True:
-		await ws.send(json.dumps({
-            "op": "ping"
-        }))
-		await asyncio.sleep(5)
+		await ws.send("ping")
+		await asyncio.sleep(30)
 
 #trade and orderbook stats output
 async def print_stats():
@@ -136,7 +134,7 @@ async def main():
 						if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
 							# if received data is about updates and full orderbooks
 							if dataJSON["topic"] == "orderbook" and dataJSON["action"] == "partial":
-								get_order_books(dataJSON, update=False)
+								get_order_books(dataJSON)
 
 						else:
 							pass

@@ -105,12 +105,14 @@ def get_order_books(var, update):
 			print(answer + " R")
 
 # trade and orderbook stats output
-async def stats():
+async def print_stats():
+	time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
+	if time_to_wait != 300:
+		await asyncio.sleep(time_to_wait)
 	while True:
 		data1 = "# LOG:CAT=trades_stats:MSG= "
 		data2 = " ".join(
-			key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if
-			value != 0)
+			key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if value != 0)
 		sys.stdout.write(data1 + data2)
 		sys.stdout.write("\n")
 		for key in symbol_trade_count_for_5_minutes:
@@ -118,16 +120,13 @@ async def stats():
 
 		data3 = "# LOG:CAT=orderbooks_stats:MSG= "
 		data4 = " ".join(
-			key.upper() + ":" + str(value) for key, value in
-			symbol_orderbook_count_for_5_minutes.items() if
+			key.upper() + ":" + str(value) for key, value in symbol_orderbook_count_for_5_minutes.items() if
 			value != 0)
 		sys.stdout.write(data3 + data4)
 		sys.stdout.write("\n")
 		for key in symbol_orderbook_count_for_5_minutes:
 			symbol_orderbook_count_for_5_minutes[key] = 0
-
 		await asyncio.sleep(300)
-
 
 async def socket(symbol):
 	# create connection with server via base ws url
@@ -171,8 +170,10 @@ async def socket(symbol):
 
 
 async def handler():
+	# create task to get metadata about each pair of symbols
 	meta_data = asyncio.create_task(metadata())
-	stats_data = asyncio.create_task(stats())
+	# create task to get trades and orderbooks stats output
+	stats_task = asyncio.create_task(print_stats())
 	tasks = []
 	for symbol in list_currencies:
 		tasks.append(asyncio.create_task(socket(symbol)))
