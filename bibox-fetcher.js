@@ -159,6 +159,7 @@ async function stats(){
     if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
         console.log(stat_line);
     }
+    setTimeout(stats, 300000);
 }
 
 
@@ -267,7 +268,6 @@ function CreateInstance(){
     });
 }
 
+setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 CreateInstance();
 
-stats();
-setInterval(stats, 300000);

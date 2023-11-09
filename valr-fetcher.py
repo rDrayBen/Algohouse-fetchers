@@ -161,6 +161,8 @@ async def subscribe_agg_orderbook(ws):
 
 
 async def stats():
+    time_to_wait = float(5 - ((time.time() / 60) % 5)) * 60
+    await asyncio.sleep(time_to_wait)
     while True:
         stat_line = '# LOG:CAT=trades_stats:MSG= '
         for symbol, amount in trades_count_5min.items():
