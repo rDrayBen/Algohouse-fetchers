@@ -43,43 +43,35 @@ async def metadata():
 	print('@MDEND')
 
 
-async def subscribe(ws):
+async def subscribe(ws, symbol):
 	while True:
-		for key, value in is_subscribed_trades.items():
+		if is_subscribed_trades[symbol] == False:
+			# create the subscription for trades
+			await ws.send(json.dumps({
+				"method": "subscribeTrades",
+				"params": {
+					"symbol": f"{symbol}"
+				}
+			}))
 
-			if value == False:
+			await asyncio.sleep(0.01)
 
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"method": "subscribeTrades",
-					"params": {
-						"symbol": f"{list_currencies[i]}"
-					}
-				}))
+		# resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
+		if is_subscribed_orderbooks[symbol] == False and os.getenv("SKIP_ORDERBOOKS") == None:
+			# create the subscription for full orderbooks and updates
+			await ws.send(json.dumps({
+				"method": "subscribeOrderbook",
+				"params": {
+					"symbol": f"{symbol}",
+					"limit": 100
+				},
+				"id": 123
+			}))
 
-				await asyncio.sleep(0.01)
+			await asyncio.sleep(0.1)
 
-		for key, value in is_subscribed_orderbooks.items():
-
-			#resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
-			if value == False and os.getenv("SKIP_ORDERBOOKS") == None:
-				# create the subscription for full orderbooks and updates
-				await ws.send(json.dumps({
-					"method": "subscribeOrderbook",
-					"params": {
-						"symbol": f"{list_currencies[i]}",
-						"limit": 100
-					},
-					"id": 123
-				}))
-
-				await asyncio.sleep(0.1)
-
-		for el in list(is_subscribed_trades):
-			is_subscribed_trades[el] = False
-
-		for el in list(is_subscribed_orderbooks):
-			is_subscribed_orderbooks[el] = False
+		is_subscribed_trades[symbol] = False
+		is_subscribed_orderbooks[symbol] = False
 
 		await asyncio.sleep(2000)
 
@@ -154,29 +146,24 @@ async def print_stats():
 			symbol_orderbook_count_for_5_minutes[key] = 0
 		await asyncio.sleep(300)
 
-async def main():
-	# create task to get metadata about each pair of symbols
-	meta_data = asyncio.create_task(metadata())
-	# create task to get trades and orderbooks stats output
-	stats_task = asyncio.create_task(print_stats())
+async def socket(symbol):
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
-
-			# create task to subscribe to symbols` pair
-			subscription = asyncio.create_task(subscribe(ws))
-
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
+			# create task to subscribe trades and orderbooks
+			subscription = asyncio.create_task(subscribe(ws,symbol))
 
-			while True:
-				data = await ws.recv()
+			async for data in ws:
+				try:
+					data = await ws.recv()
 
-				dataJSON = json.loads(data)
+					dataJSON = json.loads(data)
 
-				if "method" in dataJSON:
+					print(dataJSON)
 
-					try:
+					if "method" in dataJSON:
 
 						# if received data is about trades
 						if dataJSON['method'] == 'updateTrades':
@@ -185,22 +172,41 @@ async def main():
 
 						# if received data is about updates
 						if dataJSON['method'] == 'updateOrderbook':
+							print("-----")
 							is_subscribed_orderbooks[dataJSON['params']['symbol']] = True
 							get_order_books(dataJSON, update=True)
 
 						# if received data is about orderbooks
 						if dataJSON['method'] == 'snapshotOrderbook':
+							print("++++++")
 							is_subscribed_orderbooks[dataJSON['params']["symbol"]] = True
 							get_order_books(dataJSON, update=False)
 
 						else:
 							pass
 
-					except Exception as ex:
-						print(f"Exception {ex} occurred")
+				except Exception as ex:
+					print(f"Exception {ex} occurred")
 
 		except Exception as conn_ex:
 			print(f"Connection exception {conn_ex} occurred")
+
+
+async def handler():
+	# create task to get metadata about each pair of symbols
+	meta_data = asyncio.create_task(metadata())
+	# create task to get trades and orderbooks stats output
+	stats_task = asyncio.create_task(print_stats())
+	tasks=[]
+	for symbol in list_currencies:
+		tasks.append(asyncio.create_task(socket(symbol)))
+		await asyncio.sleep(1)
+
+	await asyncio.wait(tasks)
+
+
+async def main():
+	await handler()
 
 
 asyncio.run(main())

@@ -48,53 +48,46 @@ async def metadata():
 
 async def subscribe(ws, symbol):
 	while True:
-		for key, value in is_subscribed_trades.items():
+		if is_subscribed_trades[symbol] == False:
 
-			if value == False:
+			# create the subscription for trades
+			await ws.send(json.dumps({
+				"method": "subscribe",
+				"params": [
+					f"trade@{symbol}"
+				],
+				"id": "1"
+			}))
 
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"method": "subscribe",
-					"params": [
-						f"trade@{key}"
-					],
-					"id": "1"
-				}))
+			await asyncio.sleep(0.1)
 
-				await asyncio.sleep(0.01)
 
-		for key, value in is_subscribed_orderbooks.items():
+		# resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
+		if is_subscribed_orderbooks[symbol] == False and os.getenv("SKIP_ORDERBOOKS") == None:
+			await ws.send(json.dumps({
+				"method": "subscribe",
+				"params": [
+					f"depth@{symbol},50"
+				],
+				"id": "2"
+			}))
 
-			if value == False:
+			await asyncio.sleep(0.1)
 
-				# resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
-				if is_subscribed_orderbooks[key] == False and os.getenv("SKIP_ORDERBOOKS") == None:
-					await ws.send(json.dumps({
-						"method": "subscribe",
-						"params": [
-							f"depth@{key},50"
-						],
-						"id": "2"
-					}))
+			# create the subscription for updates
+			await ws.send(json.dumps({
+			"method": "subscribe",
+			"params": [
+				f"depth_update@{symbol}"
+			],
+			"id": "3"
+			}))
 
-					await asyncio.sleep(0.01)
+			await asyncio.sleep(0.1)
 
-					# create the subscription for updates
-					await ws.send(json.dumps({
-						"method": "subscribe",
-						"params": [
-							f"depth_update@{key}"
-						],
-						"id": "3"
-					}))
 
-					await asyncio.sleep(0.1)
-
-		for el in list(is_subscribed_trades):
-			is_subscribed_trades[el] = False
-
-		for el in list(is_subscribed_orderbooks):
-			is_subscribed_orderbooks[el] = False
+		is_subscribed_trades[symbol] = False
+		is_subscribed_orderbooks[symbol] = False
 
 		await asyncio.sleep(2000)
 
@@ -142,7 +135,7 @@ def get_order_books(var, depth_update):
 # process the situations when the server awaits "ping" request
 async def heartbeat(ws):
 	while True:
-		await ws.ping()
+		await ws.send(message="ping")
 		await asyncio.sleep(14)
 
 
@@ -186,7 +179,8 @@ async def socket(symbol):
 
 					data = await ws.recv()
 
-					dataJSON = json.loads(data)
+					if(data != "pong"):
+						dataJSON = json.loads(data)
 
 					if "topic" in dataJSON:
 
