@@ -87,10 +87,10 @@ async function getOrders(message, update){
         pq = pq.slice(0, -1);
         // check if the input data is full order book or just update
         if (update){
-            console.log(order_answer + pq)
+            console.log(order_answer + pq);
         }
         else{
-            console.log(order_answer + pq + ' R')
+            console.log(order_answer + pq + ' R');
         }
     }
 
@@ -105,10 +105,10 @@ async function getOrders(message, update){
         pq = pq.slice(0, -1);
         // check if the input data is full order book or just update
         if (update){
-            console.log(order_answer + pq)
+            console.log(order_answer + pq);
         }
         else{
-            console.log(order_answer + pq + ' R')
+            console.log(order_answer + pq + ' R');
         }
     }
 }
@@ -138,6 +138,7 @@ async function stats(){
     if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
         console.log(stat_line);
     }
+    setTimeout(stats, 300000);
 }
 
 
@@ -279,8 +280,7 @@ async function Connect2(index){
 
 // call metadata to execute
 Metadata();
-stats();
-setInterval(stats, 300000);
+setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 
 Connect1();
 
