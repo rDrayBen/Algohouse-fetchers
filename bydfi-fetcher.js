@@ -95,29 +95,34 @@ async function getOrders(message){
 
 async function manageOrderbook(pair){
     const response1 = await fetch(restOrderbookBaseUrl + pair);
-    //extract JSON from the http response
-    const myJson = await response1.json(); 
-    orders_count_5min[pair] += myJson['data']['bids'].length + myJson['data']['asks'].length;
-    if(myJson['data']['bids'] && myJson['data']['bids'].length > 0){
-        var order_answer = '$ ' + getUnixTime() + ' ' + pair + ' B ';
-        var pq = '';
-        for(let i = 0; i < myJson['data']['bids'].length; i++){
-            pq += parseFloat(myJson['data']['bids'][i]['amount']).noExponents() + '@' + parseFloat(myJson['data']['bids'][i]['price']).noExponents() + '|';
+    try{
+        //extract JSON from the http response
+        const myJson = await response1.json(); 
+        orders_count_5min[pair] += myJson['data']['bids'].length + myJson['data']['asks'].length;
+        if(myJson['data']['bids'] && myJson['data']['bids'].length > 0){
+            var order_answer = '$ ' + getUnixTime() + ' ' + pair + ' B ';
+            var pq = '';
+            for(let i = 0; i < myJson['data']['bids'].length; i++){
+                pq += parseFloat(myJson['data']['bids'][i]['amount']).noExponents() + '@' + parseFloat(myJson['data']['bids'][i]['price']).noExponents() + '|';
+            }
+            pq = pq.slice(0, -1);
+            console.log(order_answer + pq + ' R');
         }
-        pq = pq.slice(0, -1);
-        console.log(order_answer + pq + ' R');
-    }
 
-    // check if asks array is not Null
-    if(myJson['data']['asks'] && myJson['data']['asks'].length > 0){
-        var order_answer = '$ ' + getUnixTime() + ' ' + pair + ' S ';
-        var pq = '';
-        for(let i = 0; i < myJson['data']['asks'].length; i++){
-            pq += parseFloat(myJson['data']['asks'][i]['amount']).noExponents() + '@' + parseFloat(myJson['data']['asks'][i]['price']).noExponents() + '|';
+        // check if asks array is not Null
+        if(myJson['data']['asks'] && myJson['data']['asks'].length > 0){
+            var order_answer = '$ ' + getUnixTime() + ' ' + pair + ' S ';
+            var pq = '';
+            for(let i = 0; i < myJson['data']['asks'].length; i++){
+                pq += parseFloat(myJson['data']['asks'][i]['amount']).noExponents() + '@' + parseFloat(myJson['data']['asks'][i]['price']).noExponents() + '|';
+            }
+            pq = pq.slice(0, -1);
+            console.log(order_answer + pq + ' R');
         }
-        pq = pq.slice(0, -1);
-        console.log(order_answer + pq + ' R');
+    }catch(e){
+
     }
+    
 }
 
 
@@ -146,6 +151,7 @@ async function stats(){
     if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
         console.log(stat_line);
     }
+    setTimeout(stats, 300000);
 }
 
 
@@ -164,7 +170,7 @@ async function Connect(pair){
               ));
               console.log('Ping request sent');
             }
-          }, 10000);
+          }, 3000);
         // subscribe to trades and orders for all instruments
         ws.send(JSON.stringify(
             {
@@ -221,8 +227,7 @@ async function Connect(pair){
 
 
 Metadata();
-stats();
-setInterval(stats, 300000);
+setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
     for(let pair of currencies){
         manageOrderbook(pair);
