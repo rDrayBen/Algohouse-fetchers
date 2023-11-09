@@ -123,6 +123,7 @@ async function stats(){
     if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
         console.log(stat_line);
     }
+    setTimeout(stats, 300000);
 }
 
 
@@ -246,8 +247,7 @@ function Connect2(){
 
 // call metadata to execute
 Metadata();
-stats();
-setInterval(stats, 300000);
+setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 Connect1();
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
     Connect2();
