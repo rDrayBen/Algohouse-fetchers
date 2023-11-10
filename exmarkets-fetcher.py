@@ -135,7 +135,7 @@ async def socket(symbol):
 
 					# if received data is about trades
 					if dataJSON['type'] == 'market-trade':
-						is_subscribed_orderbooks[dataJSON["data"]["market"].upper()] = True
+						is_subscribed_trades[dataJSON["data"]["market"].upper()] = True
 						get_trades(dataJSON)
 
 					# if received data is about orderbooks + possibility to not subscribe or report orderbook changes
