@@ -47,8 +47,8 @@ async def subscribe(ws, symbol):
 				"marketId": symbol
 			}))
 
-			is_subscribed_trades[symbol] = False
-			is_subscribed_orderbooks[symbol] = False
+		is_subscribed_trades[symbol] = False
+		is_subscribed_orderbooks[symbol] = False
 
 		await asyncio.sleep(2000)
 
