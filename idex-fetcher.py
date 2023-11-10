@@ -11,9 +11,13 @@ answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
 WS_URL = 'wss://websocket-matic.idex.io/v1'
+is_subscribed_orderbooks = {}
+is_subscribed_trades = {}
 
 for element in currencies:
 	list_currencies.append(element["market"])
+	is_subscribed_trades[element["market"]] = False
+	is_subscribed_orderbooks[element["market"]] = False
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -27,40 +31,41 @@ for i in range(len(list_currencies)):
 
 
 async def subscribe(ws, symbol):
-	id1 = 1
-	id2 = 1000
+	while True:
+		if not is_subscribed_trades[symbol]:
+			# create the subscription for trades
+			await ws.send(json.dumps({
+				"method": "subscribe",
+				"subscriptions":
+					[{
+						"name": "trades",
+						"markets": [
+							f"{symbol}"
+						]}]
+			}))
 
-	# create the subscription for trades
-	await ws.send(json.dumps({
-		"method": "subscribe",
-		"subscriptions":
-			[{
-				"name": "trades",
-				"markets": [
-					f"{symbol}"
-				]}]
-	}))
+
+			await asyncio.sleep(0.01)
 
 
-	id1 += 1
+		if not is_subscribed_trades[symbol] and os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
+			# create the subscription for full orderbooks and updates
+			await ws.send(json.dumps({
+				"method": "subscribe",
+				"subscriptions":
+					[{
+						"name": "l2orderbook",
+						"markets": [
+							f"{symbol}"
+						]}]
+			}))
 
-	await asyncio.sleep(0.01)
+			await asyncio.sleep(0.01)
 
-	if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
-		# create the subscription for full orderbooks and updates
-		await ws.send(json.dumps({
-			"method": "subscribe",
-			"subscriptions":
-				[{
-					"name": "l2orderbook",
-					"markets": [
-						f"{symbol}"
-					]}]
-		}))
+		is_subscribed_trades[symbol] = False
+		is_subscribed_orderbooks[symbol] = False
 
-		id2 += 1
-
-	await asyncio.sleep(300)
+		await asyncio.sleep(2000)
 
 
 # get metadata about each pair of symbols
@@ -160,10 +165,12 @@ async def socket(symbol):
 
 						# if received data is about trades
 						if dataJSON['type'] == 'trades':
+							is_subscribed_trades[dataJSON["data"]["m"].upper()] = True
 							get_trades(dataJSON)
 
 						# if received data is about updates
 						if dataJSON['type'] == 'l2orderbook':
+							is_subscribed_orderbooks[dataJSON["data"]["m"].upper()] = True
 							get_order_books(dataJSON)
 
 						else:
