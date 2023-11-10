@@ -4,7 +4,7 @@ import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://ws.api.prod.paradex.trade/v1?cancel-on-disconnect=false';
-const restUrl = "https://api.testnet.paradex.trade/v1/markets";
+const restUrl = "https://api.prod.paradex.trade/v1/markets";
 
 const response = await fetch(restUrl);
 //extract JSON from the http response
