@@ -34,7 +34,7 @@ async function Metadata(){
             }
         trades_count_5min[item['symbol']] = 0;
         orders_count_5min[item['symbol']] = 0;
-        let pair_data = '@MD ' + item['symbol'] + ' spot ' + 
+        let pair_data = '@MD ' + item['symbol'] + ' perpetual ' + 
             item['base_currency'] + ' ' + item['quote_currency'] + ' ' + prec +  ' 1 1 0 0';
         console.log(pair_data);
     })
