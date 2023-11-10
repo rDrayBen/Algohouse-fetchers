@@ -27,7 +27,7 @@ async function Metadata(){
         if(item['is_active'] && item['instrument_type'] === 'PERPETUAL'){
             trades_count_5min[item['underlying_asset'] + '-USD'] = 0;
             orders_count_5min[item['underlying_asset'] + '-USD'] = 0;
-            let pair_data = '@MD ' + item['underlying_asset'] + '-USD' + ' spot ' + 
+            let pair_data = '@MD ' + item['underlying_asset'] + '-USD' + ' perpetual ' + 
             item['underlying_asset'] + ' ' + 'USD' + ' ' + (item['price_step'].split('0').length - 1) +  ' 1 1 0 0';
             console.log(pair_data);
         }
@@ -209,7 +209,7 @@ async function Connect(pair, index){
         } else {
             console.log('Connection lost');
             setTimeout(async function() {
-                Connect(pair);
+                Connect(pair, index);
                 }, 500);
         }
     };

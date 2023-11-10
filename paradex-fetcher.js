@@ -4,7 +4,7 @@ import getenv from 'getenv';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://ws.api.prod.paradex.trade/v1?cancel-on-disconnect=false';
-const restUrl = "https://api.testnet.paradex.trade/v1/markets";
+const restUrl = "https://api.prod.paradex.trade/v1/markets";
 
 const response = await fetch(restUrl);
 //extract JSON from the http response
@@ -24,7 +24,7 @@ async function Metadata(){
     myJson['results'].forEach((item)=>{
         trades_count_5min[item['symbol'].replace('-PERP', '')] = 0;
         orders_count_5min[item['symbol'].replace('-PERP', '')] = 0;
-        let pair_data = '@MD ' + item['symbol'].replace('-PERP', '') + ' spot ' + 
+        let pair_data = '@MD ' + item['symbol'].replace('-PERP', '') + ' perpetual ' + 
         item['base_currency'] + ' ' + item['quote_currency'] + ' ' + (item['price_tick_size'].split('0').length - 1) +  ' 1 1 0 0';
         console.log(pair_data);
     })
