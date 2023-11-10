@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 import sys
 
 
@@ -12,11 +13,15 @@ currencies = answer.json()
 WS_URL = 'wss://exmarkets.com/ws'
 list_currencies_id = list()
 list_currencies_name = list()
+is_subscribed_orderbooks = {}
+is_subscribed_trades = {}
 
 
 for element in currencies["markets"]:
 	list_currencies_id.append(element["id"])
 	list_currencies_name.append(element["name"])
+	is_subscribed_trades[element["id"]] = False
+	is_subscribed_orderbooks[element["id"]] = False
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -29,19 +34,23 @@ for i in range(len(list_currencies_name)):
 	symbol_orderbook_count_for_5_minutes[list_currencies_name[i].upper()] = 0
 
 async def subscribe(ws, symbol):
+	while True:
+		if not is_subscribed_trades[symbol] and not is_subscribed_orderbooks[symbol]:
+			await ws.send(json.dumps({
+				"e": "init",
+			}))
 
-	await ws.send(json.dumps({
-		"e": "init",
-	}))
+			# create the subscription for trades and orderbooks
+			await ws.send(json.dumps({
+				"e": "market",
+				"chartInterval": "1w",
+				"marketId": symbol
+			}))
 
-	# create the subscription for trades and orderbooks
-	await ws.send(json.dumps({
-		"e": "market",
-		"chartInterval": "1w",
-		"marketId": symbol
-	}))
+			is_subscribed_trades[symbol] = False
+			is_subscribed_orderbooks[symbol] = False
 
-	await asyncio.sleep(300)
+		await asyncio.sleep(2000)
 
 
 # get metadata about each pair of symbols
@@ -126,10 +135,12 @@ async def socket(symbol):
 
 					# if received data is about trades
 					if dataJSON['type'] == 'market-trade':
+						is_subscribed_orderbooks[dataJSON["data"]["market"].upper()] = True
 						get_trades(dataJSON)
 
-					# if received data is about orderbooks
-					if dataJSON['type'] == 'market-orderbook':
+					# if received data is about orderbooks + possibility to not subscribe or report orderbook changes
+					if dataJSON['type'] == 'market-orderbook' and os.getenv("SKIP_ORDERBOOKS") == None:
+						is_subscribed_orderbooks[dataJSON['data']['market'].upper()] = True
 						get_order_books(dataJSON)
 
 					else:
