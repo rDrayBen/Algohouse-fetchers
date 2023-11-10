@@ -25,7 +25,7 @@ async function Metadata(){
     myJson['data']['list'].forEach((item)=>{
         trades_count_5min[item['data']['symbol']] = 0;
         orders_count_5min[item['data']['symbol']] = 0;
-        let pair_data = '@MD ' + item['data']['symbol'] + ' spot ' + 
+        let pair_data = '@MD ' + item['data']['symbol'] + ' perpetual ' + 
         item['data']['symbol'].replace(item['data']['coin'], '') + ' ' + item['data']['coin'] + ' ' + '-1' +  ' 1 1 0 0';
         console.log(pair_data);
     })
