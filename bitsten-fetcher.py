@@ -4,6 +4,7 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 
 currency_url = 'https://back.bitsten.com/v2/market-list'
 answer = requests.get(currency_url)
@@ -13,6 +14,18 @@ WS_URL = 'wss://back.bitsten.com/ws'
 
 for element in currencies["response"]["marketList"]["result"]:
 	list_currencies.append(element["name"])
+
+
+#for trades count stats
+symbol_trade_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_trade_count_for_5_minutes[list_currencies[i]] = 0
+
+#for orderbooks count stats
+symbol_orderbook_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_orderbook_count_for_5_minutes[list_currencies[i]] = 0
+
 
 async def subscribe(ws, symbol):
 	id1 = 1
@@ -66,16 +79,18 @@ def get_unix_time():
 
 def get_trades(var):
 	trade_data = var
-	if len(trade_data["params"][1]) != 0 and len(trade_data["params"][1]) < 3:
+	if len(trade_data["params"][1]) != 0 and len(trade_data["params"][1]) < 5:
 		for elem in trade_data["params"][1]:
 			print('!', get_unix_time(), trade_data["params"][0],
 					"B" if elem["type"] == "buy" else "S", elem['price'],
 					elem["amount"], flush=True)
+			symbol_trade_count_for_5_minutes[trade_data["params"][0]] += 1
 
 
-def get_order_books(var, update):
+def get_order_books(var):
 	order_data = var
 	if 'asks' in order_data['params'][1] and len(order_data["params"][1]["asks"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data['params'][2]] += len(order_data["params"][1]["asks"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['params'][2] + ' S '
 		pq = "|".join(el[1] + "@" + el[0] for el in order_data["params"][1]["asks"])
 		answer = order_answer + pq
@@ -83,6 +98,7 @@ def get_order_books(var, update):
 		print(answer + " R")
 
 	if 'bids' in order_data['params'][1] and len(order_data["params"][1]["bids"]) != 0:
+		symbol_orderbook_count_for_5_minutes[order_data['params'][2]] += len(order_data["params"][1]["bids"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['params'][2] + ' B '
 		pq = "|".join(el[1] + "@" + el[0] for el in order_data["params"][1]["bids"])
 		answer = order_answer + pq
@@ -102,6 +118,30 @@ async def heartbeat(ws):
 		await asyncio.sleep(25)
 
 
+# trade and orderbook stats output
+async def print_stats():
+	time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
+	if time_to_wait != 300:
+		await asyncio.sleep(time_to_wait)
+	while True:
+		data1 = "# LOG:CAT=trades_stats:MSG= "
+		data2 = " ".join(
+			key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if value != 0)
+		sys.stdout.write(data1 + data2)
+		sys.stdout.write("\n")
+		for key in symbol_trade_count_for_5_minutes:
+			symbol_trade_count_for_5_minutes[key] = 0
+
+		data3 = "# LOG:CAT=orderbooks_stats:MSG= "
+		data4 = " ".join(
+			key.upper() + ":" + str(value) for key, value in symbol_orderbook_count_for_5_minutes.items() if
+			value != 0)
+		sys.stdout.write(data3 + data4)
+		sys.stdout.write("\n")
+		for key in symbol_orderbook_count_for_5_minutes:
+			symbol_orderbook_count_for_5_minutes[key] = 0
+		await asyncio.sleep(300)
+
 async def socket(symbol):
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
@@ -117,8 +157,6 @@ async def socket(symbol):
 
 					dataJSON = json.loads(data)
 
-					print(dataJSON)
-
 					if "method" in dataJSON:
 
 						# if received data is about trades
@@ -127,7 +165,7 @@ async def socket(symbol):
 
 						# if received data is about orderbooks
 						if dataJSON['method'] == 'depth.update':
-							get_order_books(dataJSON, update=False)
+							get_order_books(dataJSON)
 
 
 						else:
@@ -141,18 +179,21 @@ async def socket(symbol):
 
 
 async def handler():
+	# create task to get metadata about each pair of symbols
 	meta_data = asyncio.create_task(metadata())
-	tasks = []
+	# create task to get trades and orderbooks stats output
+	stats_task = asyncio.create_task(print_stats())
+	tasks=[]
 	for symbol in list_currencies:
 		tasks.append(asyncio.create_task(socket(symbol)))
-		await asyncio.sleep(0.1)
+		await asyncio.sleep(1)
 
 	await asyncio.wait(tasks)
 
+
 async def main():
-	while True:
-		await handler()
-		await asyncio.sleep(300)
+	await handler()
 
 
 asyncio.run(main())
+
