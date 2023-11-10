@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+import os
 
 currency_url = 'https://back.bitsten.com/v2/market-list'
 answer = requests.get(currency_url)
@@ -31,18 +32,19 @@ async def subscribe(ws, symbol):
 
 	await asyncio.sleep(0.01)
 
-	# create the subscription for full orderbooks
-	await ws.send(json.dumps({
-		"method": "depth.subscribe",
-		"params": [
-			f"{symbol}",
-			100,
-			"0"
-		],
-		"id": 9
-	}))
+	if os.getenv("SKIP_ORDERBOOKS") == None:
+		# create the subscription for full orderbooks
+		await ws.send(json.dumps({
+			"method": "depth.subscribe",
+			"params": [
+				f"{symbol}",
+				100,
+				"0"
+			],
+			"id": 9
+		}))
 
-	id2 += 1
+		id2 += 1
 
 	await asyncio.sleep(300)
 
