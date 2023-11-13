@@ -11,7 +11,7 @@ currency_url = 'https://api.bw6.com/data/v1/markets'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://api.bw6.com/websocket'
+WS_URL = 'wss://kline.bw.com/websocket'
 
 
 for key, value in currencies.items():
@@ -19,6 +19,11 @@ for key, value in currencies.items():
 	currency1 = parts[0]
 	currency2 = parts[1]
 	list_currencies.append(currency1+currency2)
+
+#for trades count stats
+symbol_trade_count_for_5_minutes = {}
+for i in range(len(list_currencies)):
+	symbol_trade_count_for_5_minutes[list_currencies[i].upper()] = 0
 
 #for orderbooks count stats
 symbol_orderbook_count_for_5_minutes = {}
@@ -41,31 +46,30 @@ def get_unix_time():
 	return round(time.time() * 1000)
 
 
-# def get_trades(var, start_time):
-# 	trade_data = var
-# 	elapsed_time = time.time() - start_time
-# 	if 'data' in trade_data and elapsed_time > 5:
-# 		for elem in trade_data["data"]:
-# 			print('!', get_unix_time(), trade_data["channel"].split("_")[0].upper(),
-# 				  "B" if elem["type"] == "buy" else "S", elem['price'],
-# 				  elem["amount"], flush=True)
+def get_trades(var):
+	trade_data = var
+	if 'data' in trade_data and len(trade_data["data"]) == 1:
+		print('!', get_unix_time(), trade_data["channel"].split("_")[0].upper(),
+				"B" if trade_data["data"][0]["type"] == "buy" else "S", trade_data['data'][0]['price'],
+				 trade_data['data'][0]["amount"], flush=True)
+		symbol_trade_count_for_5_minutes[trade_data["channel"].split("_")[0].upper()] += 1
 
 
-def get_order_books(var, update):
+def get_order_books(var):
 	order_data = var
 
-	if 'asks' in order_data and len(order_data["asks"]) != 0:
-		symbol_orderbook_count_for_5_minutes[order_data["channel"].split("_")[0].upper()] += len(order_data["asks"])
-		order_answer = '$ ' + str(get_unix_time()) + " " + order_data["channel"].split("_")[0].upper() + ' S '
-		pq = "|".join(str(el[1]) + "@" + str("{:.8f}".format(el[0])) for el in order_data["asks"])
+	if 'listDown' in order_data and len(order_data["listDown"]) != 0:
+		symbol_orderbook_count_for_5_minutes[((order_data["channel"].split("_"))[3].split("default")[0]).upper()] += len(order_data["listDown"])
+		order_answer = '$ ' + str(get_unix_time()) + " " + ((order_data["channel"].split("_"))[3].split("default")[0]).upper() + ' S '
+		pq = "|".join(str(el[1]) + "@" + str(el[0]) for el in order_data["listDown"])
 		answer = order_answer + pq
 
 		print(answer + " R")
 
-	if 'bids' in order_data and len(order_data["bids"]) != 0:
-		symbol_orderbook_count_for_5_minutes[order_data["channel"].split("_")[0].upper()] += len(order_data["bids"])
-		order_answer = '$ ' + str(get_unix_time()) + " " + order_data["channel"].split("_")[0].upper() + ' B '
-		pq = "|".join(str(el[1]) + "@" + str("{:.8f}".format(el[0])) for el in order_data["bids"])
+	if 'listUp' in order_data and len(order_data["listUp"]) != 0:
+		symbol_orderbook_count_for_5_minutes[((order_data["channel"].split("_"))[3].split("default")[0]).upper()] += len(order_data["listDown"])
+		order_answer = '$ ' + str(get_unix_time()) + " " + ((order_data["channel"].split("_"))[3].split("default")[0]).upper() + ' B '
+		pq = "|".join(str(el[1]) + "@" + str(el[0]) for el in order_data["listUp"])
 		answer = order_answer + pq
 
 		print(answer + " R")
@@ -75,28 +79,33 @@ async def heartbeat(ws):
 		await ws.send(json.dumps({
 			"channel": "ping",
 			"event": "addChannel",
-			"binary": True,
-			"isZip": True
+			"binary": False,
+			"isZip": False
 			}))
-		await asyncio.sleep(5)
+		await asyncio.sleep(3)
 
 
 #trade and orderbook stats output
 async def print_stats():
 	time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
-	if time_to_wait != 300:
-		await asyncio.sleep(time_to_wait)
+	await asyncio.sleep(time_to_wait)
 	while True:
-		data1 = "# LOG:CAT=orderbooks_stats:MSG= "
+		data1 = "# LOG:CAT=trades_stats:MSG= "
 		data2 = " ".join(
-			key.upper() + ":" + str(value) for key, value in
-			symbol_orderbook_count_for_5_minutes.items() if
-			value != 0)
+			key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if value != 0)
 		sys.stdout.write(data1 + data2)
+		sys.stdout.write("\n")
+		for key in symbol_trade_count_for_5_minutes:
+			symbol_trade_count_for_5_minutes[key] = 0
+
+		data3 = "# LOG:CAT=orderbooks_stats:MSG= "
+		data4 = " ".join(
+			key.upper() + ":" + str(value) for key, value in symbol_orderbook_count_for_5_minutes.items() if
+			value != 0)
+		sys.stdout.write(data3 + data4)
 		sys.stdout.write("\n")
 		for key in symbol_orderbook_count_for_5_minutes:
 			symbol_orderbook_count_for_5_minutes[key] = 0
-
 		await asyncio.sleep(300)
 
 async def main():
@@ -111,36 +120,46 @@ async def main():
 			pong = asyncio.create_task(heartbeat(ws))
 
 			for i in range(len(list_currencies)):
-				# create the subscription for historical trades
-				# await ws.send(json.dumps({
-				# 	"event": "addChannel",
-				# 	"channel": f"{list_currencies[i]}_trades"
-				# }))
+				#create the subscription for historical trades
+				await ws.send(json.dumps({
+					"event": "addChannel",
+					"channel": f"{list_currencies[i]}_lasttrades",
+					"binary": False,
+					"isZip": False
+				}))
 				if (os.getenv("SKIP_ORDERBOOKS") == None):
-					# create the subscription for full orderbooks and updates
+					# create the subscription for full orderbooks
 					await ws.send(json.dumps({
-						"event":"addChannel",
-						"channel":f"{list_currencies[i]}_depth"
+						"event": "addChannel",
+						"channel": f"dish_depth_00001_{list_currencies[i]}default",
+						"binary": False,
+						"isZip": False
 					}))
 
 			while True:
 				data = await ws.recv()
 
+				if data[0] == "(":
+					data = data[2:-2]
+
 				dataJSON = json.loads(data)
 
-				if "channel" in dataJSON:
+				if dataJSON['channel'] == 'pong':
+					pass
+
+				elif "data" in dataJSON or "listUp" in dataJSON:
 					try:
 
 						if dataJSON['channel']=='pong':
 							pass
 
-						# if received data is about historical trades
-						# elif dataJSON['channel'].split("_")[1] == 'trades':
-						# 	get_trades(dataJSON,start_time)
+						#if received data is about historical trades
+						elif dataJSON['channel'].split("_")[1] == 'lasttrades':
+							get_trades(dataJSON)
 
-						# if received data is about orderbooks and updates
-						elif dataJSON['channel'].split("_")[1] == 'depth':
-							get_order_books(dataJSON, update=False)
+						# if received data is about full orderbooks
+						elif "_".join(dataJSON['channel'].split("_", 2)[:2]) == 'dish_depth':
+							get_order_books(dataJSON)
 
 						else:
 							pass
