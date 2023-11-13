@@ -3,8 +3,7 @@ import fetch from 'node-fetch';
 import getenv from 'getenv';
 
 // define the websocket and REST URLs
-const tradeWsUrl = 'wss://www.bitvenus.me/ws/quote/v1';
-const orderWsUrl = 'wss://wsapi.bitvenus.me/openapi/quote/ws/v1';
+const WsUrl = 'wss://www.bitvenus.me/ws/quote/v1';
 const restUrl = "https://www.bitvenus.me/api/v1/basic/all_tokens";
 
 const response = await fetch(restUrl);
@@ -21,7 +20,6 @@ for(let i = 0; i < myJson.length; ++i){
         currencies.push(myJson[i]['tokenId']);
     }
 }
-
 
 // print metadata about pairs
 async function Metadata(){
@@ -48,16 +46,16 @@ function getUnixTime(){
 Number.prototype.noExponents = function() {
     var data = String(this).split(/[eE]/);
     if (data.length == 1) return data[0];
-  
+
     var z = '',
-      sign = this < 0 ? '-' : '',
-      str = data[0].replace('.', ''),
-      mag = Number(data[1]) + 1;
-  
+    sign = this < 0 ? '-' : '',
+    str = data[0].replace('.', ''),
+    mag = Number(data[1]) + 1;
+
     if (mag < 0) {
-      z = sign + '0.';
-      while (mag++) z += '0';
-      return z + str.replace(/^\-/, '');
+    z = sign + '0.';
+    while (mag++) z += '0';
+    return z + str.replace(/^\-/, '');
     }
     mag -= str.length;
     while (mag--) z += '0';
@@ -139,19 +137,19 @@ async function stats(){
 
 async function ConnectTrades(){
     // create a new websocket instance
-    var ws = new WebSocket(tradeWsUrl);
+    var ws = new WebSocket(WsUrl);
     ws.onopen = function(e) {
         // ping to keep connection alive
         setInterval(function() {
             if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify(
+            ws.send(JSON.stringify(
                 { 
                     "ping":getUnixTime()
                 }
-              ));
-              console.log('Ping request sent');
+            ));
+            console.log('Ping request sent');
             }
-          }, 10000);
+        }, 10000);
         // subscribe to trades and orders for all instruments
         currencies.forEach((pair)=>{
             ws.send(JSON.stringify(
@@ -214,19 +212,19 @@ async function ConnectTrades(){
 
 async function ConnectOrders(){
     // create a new websocket instance
-    var ws = new WebSocket(orderWsUrl);
+    var ws = new WebSocket(WsUrl);
     ws.onopen = function(e) {
         // ping to keep connection alive
         setInterval(function() {
             if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify(
+            ws.send(JSON.stringify(
                 { 
                     "ping": getUnixTime()
                 }
-              ));
-              console.log('Ping request sent');
+            ));
+            console.log('Ping request sent');
             }
-          }, 10000);
+        }, 10000);
         // subscribe to trades and orders for all instruments
         currencies.forEach((pair)=>{
             ws.send(JSON.stringify(
@@ -235,7 +233,7 @@ async function ConnectOrders(){
                     "topic": "diffDepth",
                     "event": "sub",
                     "params": {
-                      "binary": false
+                        "binary": false
                     }
                 }
             ));
@@ -287,5 +285,3 @@ await ConnectTrades();
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
     await ConnectOrders();
 }
-
-
