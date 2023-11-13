@@ -161,8 +161,6 @@ async def socket(symbol):
 
 					dataJSON = json.loads(data)
 
-					print(dataJSON)
-
 					if "method" in dataJSON:
 
 						# if received data is about trades
