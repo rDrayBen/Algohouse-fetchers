@@ -126,20 +126,20 @@ async def main():
 			for i in range(len(list_currencies)):
 				# create the subscription for trades
 				await ws.send(json.dumps({
-					"method": "subscribeOrderbook",
+					"method": "subscribeTrades",
 					"params": {
-						"symbol": f"{list_currencies[i]}",
-						"limit": 100
-					},
-					"id": 123
+						"symbol": f"{list_currencies[i]}"
+					}
 				}))
 				if os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
 					# create the subscription for full orderbooks and updates
 					await ws.send(json.dumps({
-						"method": "subscribeTrades",
+						"method": "subscribeOrderbook",
 						"params": {
-							"symbol": f"{list_currencies[i]}"
-						}
+							"symbol": f"{list_currencies[i]}",
+							"limit": 100
+						},
+						"id": 123
 					}))
 
 			while True:
