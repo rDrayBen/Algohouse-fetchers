@@ -16,6 +16,7 @@ var precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 
 var trades_count_5min = {};
 var orders_count_5min = {};
 
+
 // extract symbols from JSON returned information
 for(let i = 0; i < myJson.length; ++i){
     if(myJson[i]['active']){
@@ -52,15 +53,36 @@ function getUnixTime(){
     return Math.floor(Date.now());
 }
 
+Number.prototype.noExponents = function() {
+    var data = String(this).split(/[eE]/);
+    if (data.length == 1) return data[0];
+  
+    var z = '',
+      sign = this < 0 ? '-' : '',
+      str = data[0].replace('.', ''),
+      mag = Number(data[1]) + 1;
+  
+    if (mag < 0) {
+      z = sign + '0.';
+      while (mag++) z += '0';
+      return z + str.replace(/^\-/, '');
+    }
+    mag -= str.length;
+    while (mag--) z += '0';
+    return str + z;
+}
+
 
 // func to print trades
 async function getTrades(message){
     message['data'].forEach((item)=>{
-        trades_count_5min[item['symbol']] += 1;
-        var trade_output = '! ' + getUnixTime() + ' ' + 
-        item['symbol'] + ' ' + 
-        item['side'][0] + ' ' + item['price'] + ' ' + item['size'];
-        console.log(trade_output);
+        if(item['newest'] === 1){
+            trades_count_5min[item['marketName']] += 1;
+            var trade_output = '! ' + getUnixTime() + ' ' + 
+            item['marketName'] + ' ' + 
+            item['orderMode'] + ' ' + parseFloat(item['price']).noExponents() + ' ' + parseFloat(item['amount']).noExponents();
+            console.log(trade_output);
+        }
     });
 }
 
@@ -132,7 +154,7 @@ async function stats(){
 }
 
 
-function Connect1(){
+function Connect1(chunk){
     var ws1 = new WebSocket(tradeWsUrl);
     // call this func when first opening connection
     ws1.onopen = function(e) {
@@ -145,13 +167,13 @@ function Connect1(){
               console.log('Ping request sent');
             }
           }, 20000);
-        currencies.forEach((item)=>{
+        chunk.forEach((item)=>{
             // sub for trades
             ws1.send(JSON.stringify(
                 {
                     "op": "subscribe",
                     "args": [
-                    `tradeHistoryApi:${item}`
+                        `tradeHistory:${item}`
                     ]
                 }
             ))
@@ -164,10 +186,8 @@ function Connect1(){
         var dataJSON;
         try{
             dataJSON = JSON.parse(event.data);
-            if (dataJSON['topic'].split(':')[0] === 'tradeHistoryApi' && dataJSON['data'].length < 5){
+            if (dataJSON['topic'].split(':')[0] === 'tradeHistory'){
                 getTrades(dataJSON);
-            }else if (dataJSON['topic'].split(':')[0] === 'tradeHistoryApi' && dataJSON['data'].length > 5){
-                // skip trades history
             }else{
                 console.log(dataJSON);
             }        
@@ -176,6 +196,7 @@ function Connect1(){
             // error may occurr cause some part of incoming data can`t be properly parsed in json format due to inapropriate symbols
             // error only occurrs in messages that confirming subs
             // error caused here is exchanges fault
+            console.log(event.data);
         }
     };
 
@@ -198,7 +219,7 @@ function Connect1(){
     };
 }
 
-function Connect2(){
+function Connect2(chunk){
     // create a new websocket instance
     var ws2 = new WebSocket(orderWsUrl);
 
@@ -213,7 +234,7 @@ function Connect2(){
               console.log('Ping request sent');
             }
           }, 20000);
-        currencies.forEach((item)=>{
+        chunk.forEach((item)=>{
             // sub for orders
             ws2.send(JSON.stringify(
                 {
@@ -271,8 +292,23 @@ function Connect2(){
 Metadata();
 setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 
-Connect1();
-if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
-    Connect2();
+function chunkArray(array, chunkSize) {
+    const result = [];
+    for (let i = 0; i < array.length; i += chunkSize) {
+        result.push(array.slice(i, i + chunkSize));
+    }
+    return result;
 }
+  
+const chunkedArray = chunkArray(currencies, 49);
+  
+var connections = [];
+
+for(let i = 0; i < chunkedArray.length; i++){
+    connections.push(Connect1(chunkedArray[i]));
+    if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
+        connections.push(Connect2(chunkedArray[i]));
+    }
+}
+
 
