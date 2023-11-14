@@ -34,7 +34,7 @@ async def subscribe(ws, symbol):
 		"method": "subscribeTrades",
 		"params": {
 			"symbol": f"{symbol}",
-			"limit": 100
+			"limit": 10000000
 		},
 		"id": id1
 	}))
