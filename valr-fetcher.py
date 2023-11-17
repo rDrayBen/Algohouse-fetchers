@@ -4,10 +4,26 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 
+CURRENT_MODE = 'SPOT'
+
+# Extract command-line arguments starting from index 1
+args = sys.argv[1:]
+
+# Check if there are any arguments
+if len(args) > 0:
+    # Iterate through the arguments
+    for arg in args:
+        # Check if the argument starts with '-'
+        if arg.startswith('-') and arg[1:] == 'perpetual':
+            CURRENT_MODE = 'FUTURES'
+            break
+else:
+    CURRENT_MODE = "SPOT"
 
 # get all available symbol pairs from exchange
-currency_url = 'https://api.valr.com/v1/public/pairs'
+currency_url = 'https://api.valr.com/pairs?showFutures=true'
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
@@ -20,18 +36,27 @@ WS_URL = 'wss://api.valr.com/ws/trade'
 
 # fill the list with all available symbol pairs on exchange
 for pair_s in currencies:
-    if pair_s['active']:
+    if pair_s['active'] and CURRENT_MODE == 'SPOT' and pair_s['currencyPairType'] == 'SPOT':
+        list_currencies.append(pair_s['symbol'])
+        check_activity[pair_s['symbol']] = False
+    elif pair_s['active'] and CURRENT_MODE == 'FUTURES' and pair_s['currencyPairType'] == 'FUTURE':
         list_currencies.append(pair_s['symbol'])
         check_activity[pair_s['symbol']] = False
 
 
 async def metadata():
     for pair in currencies:
-        if pair['active']:
+        if pair['active'] and CURRENT_MODE == 'SPOT' and pair['currencyPairType'] == 'SPOT':
             trades_count_5min[pair['symbol']] = 0
             orders_count_5min[pair['symbol']] = 0
-            pair_data = '@MD ' + pair['symbol'] + ' spot ' + pair['baseCurrency'] + ' ' + pair['quoteCurrency'] + \
-                        ' ' + pair['baseDecimalPlaces'] + ' 1 1 0 0'
+            pair_data = '@MD ' + pair['symbol'] + ' spot ' + pair['baseCurrency']['symbol'] + ' ' \
+                        + pair['quoteCurrency']['symbol'] + ' ' + pair['baseDecimalPlaces'] + ' 1 1 0 0'
+            print(pair_data, flush=True)
+        elif pair['active'] and CURRENT_MODE == 'FUTURES' and pair['currencyPairType'] == 'FUTURE':
+            trades_count_5min[pair['symbol']] = 0
+            orders_count_5min[pair['symbol']] = 0
+            pair_data = '@MD ' + pair['symbol'] + ' perpetual ' + pair['baseCurrency']['symbol'] + ' ' \
+                        + pair['quoteCurrency']['symbol'] + ' ' + pair['baseDecimalPlaces'] + ' 1 1 0 0'
             print(pair_data, flush=True)
     print('@MDEND')
 
@@ -230,7 +255,6 @@ async def main():
                     print(f"Exception {e} occurred")
         except Exception as conn_e:
             print(f"WARNING: connection exception {conn_e} occurred")
-
 
 # run main function
 asyncio.run(main())
