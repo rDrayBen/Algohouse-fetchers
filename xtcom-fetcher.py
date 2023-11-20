@@ -6,20 +6,45 @@ import asyncio
 import os
 import sys
 
-# get all available symbol pairs
+#default values
+MODE = "SPOT"
 currency_url = 'https://sapi.xt.com/v4/public/symbol'
+WS_URL = 'wss://stream.xt.com/public'
+
+args = sys.argv[1:]
+if len(args) > 0:
+	for arg in args:
+		if arg.startswith('-') and arg[1:] == "perpetual":
+			MODE = "FUTURES"
+			# get all available symbol pairs
+			currency_url = 'https://dapi.xt.com/future/market/v3/public/symbol/list'
+
+			WS_URL = 'wss://fstream.xt.com/ws/market?type=SYMBOL'
+			break
+else:
+	MODE = "SPOT"
+	# get all available symbol pairs
+	currency_url = 'https://sapi.xt.com/v4/public/symbol'
+
+	WS_URL = 'wss://stream.xt.com/public'
+
+
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://stream.xt.com/public'
 is_subscribed_orderbooks = {}
 is_subscribed_trades = {}
 
 # check if the certain symbol pair is available
 for element in currencies["result"]["symbols"]:
-	list_currencies.append(element["symbol"])
-	is_subscribed_trades[element["symbol"]] = False
-	is_subscribed_orderbooks[element["symbol"]] = False
+	if MODE == "SPOT" and element["state"] == "ONLINE":
+		list_currencies.append(element["symbol"])
+		is_subscribed_trades[element["symbol"]] = False
+		is_subscribed_orderbooks[element["symbol"]] = False
+	elif MODE == "FUTURES" and element["state"] == "ONLINE" and element["productType"] == "perpetual":
+		list_currencies.append(element["symbol"])
+		is_subscribed_trades[element["symbol"]] = False
+		is_subscribed_orderbooks[element["symbol"]] = False
 
 timer = round(time.time())
 
@@ -35,13 +60,22 @@ for i in range(len(list_currencies)):
 
 #get metadata about each pair of symbols
 async def metadata():
-
 	for pair in currencies["result"]["symbols"]:
-		pair_data = '@MD ' + pair["baseCurrency"].upper() + '_' + pair["quoteCurrency"].upper() + ' spot ' + \
+		if MODE == 'SPOT':
+			pair_data = '@MD ' + pair["baseCurrency"].upper() + '_' + pair["quoteCurrency"].upper() + ' spot ' + \
 					pair["baseCurrency"].upper() + ' ' + pair["quoteCurrency"].upper() + \
 					' ' + str(pair['pricePrecision']) + ' 1 1 0 0'
 
-		print(pair_data, flush=True)
+			print(pair_data, flush=True)
+		elif MODE == 'FUTURES':
+			pair_data = '@MD ' + pair["baseCurrency"].upper() + '_' + pair["quoteCurrency"].upper() + ' perpetual ' + \
+						pair["baseCurrency"].upper() + ' ' + pair["quoteCurrency"].upper() + \
+						' ' + str(pair['pricePrecision']) + ' 1 1 0 0'
+
+			print(pair_data, flush=True)
+
+
+
 
 	print('@MDEND')
 
