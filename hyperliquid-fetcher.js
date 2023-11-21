@@ -22,10 +22,7 @@ const myJson = await response.json();
 var currencies = [];
 var trades_count_5min = {};
 var orders_count_5min = {};
-var conn_error = 0;
-var trade_amount = 0;
-var delta_amount = 0;
-var order_amount = 0;
+
 
 // extract symbols from JSON returned information
 for(let i = 0; i < myJson['universe'].length; ++i){
@@ -51,6 +48,10 @@ function getUnixTime(){
     return Math.floor(Date.now());
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
 
 Number.prototype.noExponents = function() {
     var data = String(this).split(/[eE]/);
@@ -73,7 +74,6 @@ Number.prototype.noExponents = function() {
 
 
 async function getTrades(message){
-    trade_amount += message['data'].length;
     message['data'].forEach((trade)=>{
         trades_count_5min[trade['coin'] + '-USD'] += 1;
         var trade_output = '! ' + getUnixTime() + ' ' + trade['coin'] + '-USD' + ' ' + 
@@ -86,7 +86,6 @@ async function getTrades(message){
 
 
 async function getOrders(message){
-    order_amount += 2;
     var bids_order_answer = '$ ' + getUnixTime() + ' ' + message['data']['coin'] + '-USD' + ' B '
     var bids_pq = '';
     var asks_order_answer = '$ ' + getUnixTime() + ' ' + message['data']['coin'] + '-USD' + ' S '
@@ -212,6 +211,10 @@ async function Connect(){
             }
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
+            (async () => {
+                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                console.log(event.data);
+              })();
         }
         
         
@@ -224,7 +227,6 @@ async function Connect(){
             console.log(`Connection closed with code ${event.code} and reason ${event.reason}`);
         } else {
             console.log('Connection lost');
-            conn_error += 1;
             setTimeout(async function() {
                 Connect();
                 }, 500);
@@ -234,27 +236,13 @@ async function Connect(){
     // func to handle errors
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
 }
 
 
 Metadata();
-async function appendToFileWithInterval() {
-    const filePath = `D:\\Algohouse\\STATS\\hyperliquid-stat.txt`;
-    while (true) {
-        var date = String(new Date());
-        var data = `time: ${date.replace(' GMT+0200 (за східноєвропейським стандартним часом)', '')}\t\tconn error: ${conn_error}\t\ttrades: ${trade_amount}\t\torders: ${order_amount}\t\tdeltas: ${delta_amount}\n`;
-        
-        try {
-            // Дописуємо дані в кінець файлу
-            fs.appendFileSync(filePath, data);
-            console.log('Дані успішно дописані в файл.');
-        } catch (error) {
-            console.error('Виникла помилка при дописуванні в файл:', error);
-        }
-        await new Promise((resolve) => setTimeout(resolve, 60000)); // Затримка 60 секунд
-    }
-}
-appendToFileWithInterval();
 setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 Connect();
