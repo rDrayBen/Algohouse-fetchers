@@ -41,6 +41,10 @@ function getUnixTime(){
     return Math.floor(Date.now());
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
 
 // func to print trades
 async function getTrades(message){
@@ -189,14 +193,13 @@ async function Connect(){
 
     // func to handle errors
     wsConnection.onerror = function(error) {
-        
+        console.log(`Error ${error} occurred`);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
 }
     
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 Number.prototype.noExponents = function() {
     var data = String(this).split(/[eE]/);
@@ -368,7 +371,10 @@ async function ConnectDepth1(){
 
     // func to handle errors
     wsDepth.onerror = function(error) {
-        
+        console.log(`Error ${error} occurred`);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
 
 }
@@ -413,7 +419,10 @@ async function ConnectDepth2(){
 
     // func to handle errors
     wsDepth.onerror = function(error) {
-        
+        console.log(`Error ${error} occurred`);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
 
 }
