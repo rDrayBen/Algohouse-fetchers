@@ -38,6 +38,10 @@ function getUnixTime(){
     return Math.floor(Date.now());
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 
 Number.prototype.noExponents = function() {
     var data = String(this).split(/[eE]/);
@@ -141,17 +145,6 @@ async function Connect(){
     var ws = new WebSocket(wsUrl);
     ws.onopen = function(e) {
         ws.ping();
-        // create ping function to keep connection alive
-        // setInterval(function() {
-        //     if (ws.readyState === WebSocket.OPEN) {
-        //       ws.send(JSON.stringify(
-        //         {
-        //             "type":"ka"
-        //         }
-        //       ));
-        //       console.log('Ping request sent');
-        //     }
-        //   }, 20000);
         // subscribe to trades and orders for all instruments
         currencies.forEach((pair)=>{
             ws.send(JSON.stringify(
@@ -200,6 +193,10 @@ async function Connect(){
             }
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
+            (async () => {
+                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                console.log(event.data);
+              })();
         }
         
         
@@ -221,6 +218,9 @@ async function Connect(){
     // func to handle errors
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
 }
 
