@@ -166,8 +166,10 @@ async def main():
                         print(dataJSON)
                 except Exception as e:
                     print(f"Exception {e} occurred")
+                    time.sleep(1)
         except Exception as conn_e:
             print(f"WARNING: connection exception {conn_e} occurred")
+            time.sleep(1)
 
 
 # run main function
