@@ -41,6 +41,9 @@ function getUnixTime(){
     return Math.floor(Date.now());
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
 // func to print trades
 async function getTrades(message){
@@ -191,7 +194,10 @@ async function ConnectTrades(index){
 
     // func to handle errors
     wsTrade.onerror = function(error) {
-
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            console.log(error);
+          })();
     };
 }
     
@@ -264,7 +270,10 @@ async function ConnectDepth(index){
 
     // func to handle errors
     wsDepth.onerror = function(error) {
-
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            console.log(error);
+          })();
     };
 
 }
