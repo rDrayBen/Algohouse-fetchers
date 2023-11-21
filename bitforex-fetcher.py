@@ -15,7 +15,7 @@ trades_count_5min = {}
 orders_count_5min = {}
 # base web socket url
 WS_URL = 'wss://www.bitforex.com/mkapi/coinGroup1/ws'
-
+print(currencies)
 # fill the list with all available symbol pairs on exchange
 for pair_s in currencies['data']:
     list_currencies.append(pair_s['symbol'])
@@ -181,9 +181,11 @@ async def main():
                     else:
                         print(dataJSON)
                 except Exception as e:
-                    print(f"Exception {e} occurred")
+                    print(f"Exception {e} occurred", data)
+                    time.sleep(1)
         except Exception as conn_e:
             print(f"WARNING: connection exception {conn_e} occurred")
+            time.sleep(1)
 
 
 # run main function
