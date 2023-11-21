@@ -42,6 +42,10 @@ function getUnixTime(){
     return Math.floor(Date.now());
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 Number.prototype.noExponents = function() {
     var data = String(this).split(/[eE]/);
     if (data.length == 1) return data[0];
@@ -185,6 +189,10 @@ function Connect1(){
             }        
         }catch(e){
             // possible errors while parsing data to json format
+            (async () => {
+                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                console.log(event.data);
+              })();
         }
     };
 
@@ -204,6 +212,9 @@ function Connect1(){
     // func to handle errors
     ws1.onerror = function(error) {
         console.log(error);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
 }
 
@@ -255,6 +266,10 @@ async function Connect2(index){
             // error may occurr cause some part of incoming data can`t be properly parsed in json format due to inapropriate symbols
             // error only occurrs in messages that confirming subs
             // error caused here is exchanges fault
+            (async () => {
+                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                console.log(event.data);
+              })();
         }
     };
 
@@ -274,6 +289,9 @@ async function Connect2(index){
     // func to handle errors
     ws2.onerror = function(error) {
         console.log(error);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
     
 }
@@ -283,10 +301,6 @@ Metadata();
 setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 
 Connect1();
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
     var wsArr = [];
