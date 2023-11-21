@@ -245,6 +245,7 @@ async def main():
                             get_aggregated_orderbook(dataJSON)
                         elif dataJSON['type'] == "ERROR":
                             print(dataJSON)
+                            time.sleep(1)
                             resubscribe_aggregated_orderbook.add(dataJSON['message'].replace(
                                 "Channel FULL_ORDERBOOK_UPDATE, pair ", '').replace(' combination invalid', ''))
                         else:
@@ -252,9 +253,11 @@ async def main():
                     else:
                         print(dataJSON)
                 except Exception as e:
-                    print(f"Exception {e} occurred")
+                    print(f"Exception {e} occurred", data)
+                    time.sleep(1)
         except Exception as conn_e:
             print(f"WARNING: connection exception {conn_e} occurred")
+            time.sleep(1)
 
 # run main function
 asyncio.run(main())
