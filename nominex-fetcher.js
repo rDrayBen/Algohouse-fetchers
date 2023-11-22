@@ -53,6 +53,10 @@ function getUnixTime(){
     return Math.floor(Date.now());
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 
 
 Number.prototype.noExponents = function() {
@@ -207,6 +211,10 @@ async function ConnectTrades(){
             }
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
+            (async () => {
+                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                console.log(event.data);
+              })();
         }
         
         
@@ -228,6 +236,9 @@ async function ConnectTrades(){
     // func to handle errors
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
 }
 
@@ -260,6 +271,10 @@ async function ConnectOrders(){
             }
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
+            (async () => {
+                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                console.log(event.data);
+              })();
         }
         
         
@@ -281,6 +296,9 @@ async function ConnectOrders(){
     // func to handle errors
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
 }
 
