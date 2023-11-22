@@ -188,7 +188,8 @@ async def socket(symbol):
 
 
 				except Exception as ex:
-					print(f"Exception {ex} occurred")
+					print(f"Exception {ex} occurred", data)
+					time.sleep(1)
 
 				except:
 					pass
@@ -196,6 +197,7 @@ async def socket(symbol):
 
 		except Exception as conn_ex:
 			print(f"Connection exception {conn_ex} occurred")
+			time.sleep(1)
 
 		except:
 			continue

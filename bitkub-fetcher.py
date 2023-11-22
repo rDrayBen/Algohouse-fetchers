@@ -115,14 +115,18 @@ async def socket(url):
 				dataJSON = json.loads(data)
 
 				if 'txn' in dataJSON or 'event' in dataJSON:
-					if 'txn' in dataJSON:
-						print_trade(dataJSON)
-					elif dataJSON['event'] == "askschanged":
-						print_orderbook(dataJSON, askschanged=True)
-					elif dataJSON['event'] == "bidschanged":
-						print_orderbook(dataJSON, askschanged=False)
-					else:
-						pass
+					try:
+						if 'txn' in dataJSON:
+							print_trade(dataJSON)
+						elif dataJSON['event'] == "askschanged":
+							print_orderbook(dataJSON, askschanged=True)
+						elif dataJSON['event'] == "bidschanged":
+							print_orderbook(dataJSON, askschanged=False)
+						else:
+							pass
+					except Exception as ex:
+						print(f"Exception {ex} occurred", data)
+						time.sleep(1)
 				else:
 					pass
 		except Exception as conn_ex:
@@ -130,6 +134,7 @@ async def socket(url):
 				pass
 			else:
 				print(f"Connection exception {conn_ex} occurred")
+				time.sleep(1)
 
 
 async def handler():
