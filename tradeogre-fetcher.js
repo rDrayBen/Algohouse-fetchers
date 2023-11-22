@@ -24,8 +24,7 @@ async function Metadata(){
     currencies.forEach((item)=>{
         trades_count_5min[item] = 0;
         orders_count_5min[item] = 0;
-        let pair_data = '@MD ' + item + ' spot ' + 
-            item.split('-')[0] + ' ' + item.split('-')[1] + ' ' + '-1' +  ' 1 1 0 0';
+        let pair_data = '@MD ' + item + ' spot ' + item.split('-')[0] + ' ' + item.split('-')[1] + ' ' + '-1' +  ' 1 1 0 0';
         console.log(pair_data);
     })
     console.log('@MDEND')
@@ -35,6 +34,10 @@ async function Metadata(){
 //function to get current time in unix format
 function getUnixTime(){
     return Math.floor(Date.now());
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 
@@ -167,6 +170,10 @@ async function Connect(pair){
             }
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
+            (async () => {
+                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                console.log(event.data);
+              })();
         }
     };
 
@@ -186,6 +193,9 @@ async function Connect(pair){
     // func to handle errors
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
 }
 
