@@ -43,7 +43,7 @@ async def subscribe(ws, symbol):
 			# create the subscription for trades and orderbooks
 			await ws.send(json.dumps({
 				"e": "market",
-				"chartInterval": "1w",
+				"chartInterval": "30m",
 				"marketId": symbol
 			}))
 
@@ -131,6 +131,7 @@ async def socket(symbol):
 			async for data in ws:
 
 				try:
+
 					dataJSON = json.loads(data)
 
 					# if received data is about trades
