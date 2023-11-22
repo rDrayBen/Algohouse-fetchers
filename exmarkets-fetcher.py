@@ -34,8 +34,11 @@ for i in range(len(list_currencies_name)):
 	symbol_orderbook_count_for_5_minutes[list_currencies_name[i].upper()] = 0
 
 async def subscribe(ws, symbol):
+
 	while True:
+
 		if not is_subscribed_trades[symbol] and not is_subscribed_orderbooks[symbol]:
+
 			await ws.send(json.dumps({
 				"e": "init",
 			}))
