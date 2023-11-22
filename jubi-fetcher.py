@@ -120,7 +120,7 @@ async def heartbeat(ws):
 		await ws.send(json.dumps({
 			"ping": get_unix_time()
 		}))
-		await asyncio.sleep(0.01)
+		await asyncio.sleep(4)
 
 
 # trade and orderbook stats output
@@ -186,7 +186,6 @@ async def socket(symbol):
 						else:
 							pass
 
-
 				except Exception as ex:
 					print(f"Exception {ex} occurred", data)
 					time.sleep(1)
@@ -194,14 +193,12 @@ async def socket(symbol):
 				except:
 					pass
 
-
 		except Exception as conn_ex:
 			print(f"Connection exception {conn_ex} occurred")
 			time.sleep(1)
 
 		except:
 			continue
-
 
 async def handler():
 	# create task to get metadata about each pair of symbols
