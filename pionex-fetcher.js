@@ -45,6 +45,10 @@ function getUnixTime(){
     return Math.floor(Date.now());
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 
 // func to print trades
 async function getTrades(message){
@@ -169,7 +173,10 @@ function Connect1(index){
 
     // func to handle errors
     ws1.onerror = function(error) {
-        // console.log(`Error ${error.message} occurred in ws1`);
+        console.log(`Error ${error.message} occurred in ws1`);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
 }
 
@@ -238,7 +245,10 @@ function Connect2(index){
 
     // func to handle errors
     ws2.onerror = function(error) {
-        // console.log(`Error ${error.message} occurred in ws2`);
+        console.log(`Error ${error.message} occurred in ws2`);
+        (async () => {
+            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+          })();
     };
 }
 
@@ -246,9 +256,6 @@ function Connect2(index){
 Metadata();
 setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 // create an array of websocket connections to get trades for each trading pair
 var wsTradeArr = [];
@@ -262,3 +269,4 @@ for(let i = 0; i < currencies.length; i++){
     
     await sleep(500);
 }
+
