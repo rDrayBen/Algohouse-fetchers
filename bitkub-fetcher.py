@@ -12,14 +12,13 @@ list_currencies_id = list()
 WS_URL = 'wss://api.bitkub.com/websocket-api/'
 WS_URL_trades = WS_URL + f"market.trade."
 WS_URL_orderbooks = WS_URL + f"orderbook/"
-metadata_API = "https://tradingview.bitkub.com/tradingview/symbols?symbol="
 
 
-for element in currencies["result"]:
+for element in currencies["data"]:
 	list_currencies.append(element["symbol"])
 
-for element in currencies["result"]:
-	list_currencies_id.append(element["id"])
+for element in currencies["data"]:
+	list_currencies_id.append(element["pairing_id"])
 
 
 currency_dict = {currency: currency_id for currency, currency_id in zip(list_currencies, list_currencies_id)}
@@ -36,18 +35,15 @@ def create_orderbook_chanels(symbol_id: int):
 response = requests.get(currency_url)
 trade_messages = [create_trades_chanels(x) for x in list_currencies]
 orderbook_messages = [create_orderbook_chanels(x) for x in list_currencies_id]
-symbols_ = {x['id']: x['symbol'] for x in response.json()['result']}
+symbols_ = {x['pairing_id']: x['symbol'] for x in response.json()['data']}
 
 
 # get metadata about each pair of symbols
 async def metadata():
 	data = requests.get(currency_url)
-	for el in data.json()['result']:
-		quote_symbol = el['symbol'][4:len(el['symbol'])]
-		precission = str(requests.get(metadata_API + quote_symbol + "_THB").json()['pricescale'])
-		decimals_ = precission.count('0')
-		print("@MD", el['symbol'], "spot", "THB", quote_symbol, decimals_,
-			  1, 1, 0, 0, end="\n")
+	for pair in data.json()['data']:
+		print("@MD", pair['symbol'], "spot", pair["base_asset"], pair["quote_asset"],
+			  str(str(pair['price_step'])[::-1].find('.')), "1", "1", "0", "0", end="\n")
 
 	print('@MDEND')
 
@@ -87,8 +83,8 @@ def print_orderbook(var, askschanged):
 		index = 0
 		for el in data:
 			if index == 0:
-				order_answer2 += f"{el[2]}@{el[1]}"
-			order_answer2 += f"|{el[2]}@{el[1]}"
+				order_answer2 += f"{el[2]:.8f}@{el[1]}"
+			order_answer2 += f"|{el[2]:.8f}@{el[1]}"
 			index += 1
 		order_answer = order_answer1 + order_answer2
 		print(order_answer + " R")
@@ -99,8 +95,8 @@ def print_orderbook(var, askschanged):
 		index = 0
 		for el in data:
 			if index == 0:
-				order_answer2 += f"{el[2]}@{el[1]}"
-			order_answer2 += f"|{el[2]}@{el[1]}"
+				order_answer2 += f"{el[2]:.8f}@{el[1]}"
+			order_answer2 += f"|{el[2]:.8f}@{el[1]}"
 			index += 1
 		order_answer = order_answer1 + order_answer2
 		print(order_answer + " R")
