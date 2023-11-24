@@ -214,7 +214,10 @@ async def handler():
 
 
 async def main():
-	await handler()
+	while True:
+		await handler()
+		await asyncio.sleep(300)
+
 
 
 asyncio.run(main())
