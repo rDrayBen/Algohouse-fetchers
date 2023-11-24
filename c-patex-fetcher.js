@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import getenv from 'getenv';
+import * as commonFunctions from './CommonFunctions/CommonFunctions.js';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://ws.c-patex.com/';
@@ -33,40 +34,11 @@ async function Metadata(){
 }
 
 
-//function to get current time in unix format
-function getUnixTime(){
-    return Math.floor(Date.now());
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-
-Number.prototype.noExponents = function() {
-    var data = String(this).split(/[eE]/);
-    if (data.length == 1) return data[0];
-  
-    var z = '',
-      sign = this < 0 ? '-' : '',
-      str = data[0].replace('.', ''),
-      mag = Number(data[1]) + 1;
-  
-    if (mag < 0) {
-      z = sign + '0.';
-      while (mag++) z += '0';
-      return z + str.replace(/^\-/, '');
-    }
-    mag -= str.length;
-    while (mag--) z += '0';
-    return str + z;
-}
-
 
 async function getTrades(message){
     trades_count_5min[message['params'][0]] += message['params'][1].length;
     message['params'][1].forEach((item)=>{
-        var trade_output = '! ' + getUnixTime() + ' ' + message['params'][0] + ' ' + 
+        var trade_output = '! ' + commonFunctions.getUnixTime() + ' ' + message['params'][0] + ' ' + 
         item['type'][0].toUpperCase() + ' ' + parseFloat(item['price']).noExponents() + ' ' + parseFloat(item['amount']).noExponents();
         console.log(trade_output);
     });
@@ -77,7 +49,7 @@ async function getOrders(message, update){
     // check if bids array is not Null
     if(message['params'][1]['bids']){
         orders_count_5min[message['params'][2].replaceAll('d', '')] += message['params'][1]['bids'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['params'][2].replaceAll('d', '') + ' B '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['params'][2].replaceAll('d', '') + ' B '
         var pq = '';
         for(let i = 0; i < message['params'][1]['bids'].length; i++){
             pq += parseFloat(message['params'][1]['bids'][i][1]).noExponents() + '@' + parseFloat(message['params'][1]['bids'][i][0]).noExponents() + '|';
@@ -95,7 +67,7 @@ async function getOrders(message, update){
     // check if asks array is not Null
     if(message['params'][1]['asks']){
         orders_count_5min[message['params'][2].replaceAll('d', '')] += message['params'][1]['asks'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['params'][2].replaceAll('d', '') + ' S '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['params'][2].replaceAll('d', '') + ' S '
         var pq = '';
         for(let i = 0; i < message['params'][1]['asks'].length; i++){
             pq += parseFloat(message['params'][1]['asks'][i][1]).noExponents() + '@' + parseFloat(message['params'][1]['asks'][i][0]).noExponents() + '|';
@@ -112,31 +84,9 @@ async function getOrders(message, update){
 }
 
 
-async function stats(){
-    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
-
-    for(var key in trades_count_5min){
-        if(trades_count_5min[key] !== 0){
-            stat_line += `${key}:${trades_count_5min[key]} `;
-        }
-        trades_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
-        console.log(stat_line);
-    }
-
-    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
-
-    for(var key in orders_count_5min){
-        if(orders_count_5min[key] !== 0){
-            stat_line += `${key}:${orders_count_5min[key]} `;
-        }
-        orders_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
-        console.log(stat_line);
-    }
-    setTimeout(stats, 300000);
+async function sendStats(){
+    commonFunctions.stats(trades_count_5min, orders_count_5min);
+    setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 }
 
 
@@ -183,7 +133,7 @@ async function ConnectTrades(){
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
             (async () => {
-                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
                 console.log(event.data);
               })();
         }
@@ -208,7 +158,7 @@ async function ConnectTrades(){
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
           })();
     };
 }
@@ -258,7 +208,7 @@ async function ConnectOrders(pair){
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
             (async () => {
-                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
                 console.log(event.data);
               })();
         }
@@ -283,20 +233,20 @@ async function ConnectOrders(pair){
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
           })();
     };
 }
 
 Metadata();
-setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
+setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 ConnectTrades();
 if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS") === null){
     var connections = [];
 
     for(let pair of currencies){
         connections.push(ConnectOrders(pair));
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await commonFunctions.sleep(100);
     }
 }
 

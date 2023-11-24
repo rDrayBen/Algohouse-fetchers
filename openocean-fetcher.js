@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import getenv from 'getenv';
+import * as commonFunctions from './CommonFunctions/CommonFunctions.js';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://perp-api.openocean.finance/arbitrum/ws/market';
@@ -43,39 +44,9 @@ async function Metadata(){
 }
 
 
-//function to get current time in unix format
-function getUnixTime(){
-    return Math.floor(Date.now());
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-
-Number.prototype.noExponents = function() {
-    var data = String(this).split(/[eE]/);
-    if (data.length == 1) return data[0];
-  
-    var z = '',
-      sign = this < 0 ? '-' : '',
-      str = data[0].replace('.', ''),
-      mag = Number(data[1]) + 1;
-  
-    if (mag < 0) {
-      z = sign + '0.';
-      while (mag++) z += '0';
-      return z + str.replace(/^\-/, '');
-    }
-    mag -= str.length;
-    while (mag--) z += '0';
-    return str + z;
-}
-
-
 async function getTrades(message){
     trades_count_5min[message['symbol']] += 1;
-    var trade_output = '! ' + getUnixTime() + ' ' + message['symbol'] + ' ' + 
+    var trade_output = '! ' + commonFunctions.getUnixTime() + ' ' + message['symbol'] + ' ' + 
         message['data']['side'][0] + ' ' + parseFloat(message['data']['price']).noExponents() + ' ' + parseFloat(message['data']['qty']).noExponents();
     console.log(trade_output);
 }
@@ -86,7 +57,7 @@ async function getOrders(message){
     var messageJSON = JSON.parse(message['data']);
     if(messageJSON['bids'].length > 0){
         orders_count_5min[message['symbol']] += messageJSON['bids'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['symbol'] + ' B '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['symbol'] + ' B '
         var pq = '';
         for(let i = 0; i < messageJSON['bids'].length; i++){
             pq += parseFloat(messageJSON['bids'][i]["1"]).noExponents() + '@' + parseFloat(messageJSON['bids'][i]["0"]).noExponents() + '|';
@@ -98,7 +69,7 @@ async function getOrders(message){
     // check if asks array is not Null
     if(messageJSON['asks'].length > 0){
         orders_count_5min[message['symbol']] += messageJSON['asks'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['symbol'] + ' S '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['symbol'] + ' S '
         var pq = '';
         for(let i = 0; i < messageJSON['asks'].length; i++){
             pq += parseFloat(messageJSON['asks'][i]["1"]).noExponents() + '@' + parseFloat(messageJSON['asks'][i]["0"]).noExponents() + '|';
@@ -109,33 +80,10 @@ async function getOrders(message){
 }
 
 
-async function stats(){
-    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
-
-    for(var key in trades_count_5min){
-        if(trades_count_5min[key] !== 0){
-            stat_line += `${key}:${trades_count_5min[key]} `;
-        }
-        trades_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
-        console.log(stat_line);
-    }
-
-    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
-
-    for(var key in orders_count_5min){
-        if(orders_count_5min[key] !== 0){
-            stat_line += `${key}:${orders_count_5min[key]} `;
-        }
-        orders_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
-        console.log(stat_line);
-    }
-    setTimeout(stats, 300000);
+async function sendStats(){
+    commonFunctions.stats(trades_count_5min, orders_count_5min);
+    setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 }
-
 
 
 async function Connect(){
@@ -197,7 +145,7 @@ async function Connect(){
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
             (async () => {
-                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
                 console.log(event.data);
               })();
         }
@@ -223,11 +171,11 @@ async function Connect(){
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
           })();
     };
 }
 
 Metadata();
-setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
+setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 await Connect();

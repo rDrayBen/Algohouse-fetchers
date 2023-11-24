@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import getenv from 'getenv';
+import * as commonFunctions from './CommonFunctions/CommonFunctions.js';
 
 // define the websocket and REST URLs
 const tradeWsUrl = 'wss://ws.btse.com/ws/spot';
@@ -48,41 +49,12 @@ async function Metadata(){
 }
 
 
-//function to get current time in unix format
-function getUnixTime(){
-    return Math.floor(Date.now());
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-Number.prototype.noExponents = function() {
-    var data = String(this).split(/[eE]/);
-    if (data.length == 1) return data[0];
-  
-    var z = '',
-      sign = this < 0 ? '-' : '',
-      str = data[0].replace('.', ''),
-      mag = Number(data[1]) + 1;
-  
-    if (mag < 0) {
-      z = sign + '0.';
-      while (mag++) z += '0';
-      return z + str.replace(/^\-/, '');
-    }
-    mag -= str.length;
-    while (mag--) z += '0';
-    return str + z;
-}
-
-
 // func to print trades
 async function getTrades(message){
     message['data'].forEach((item)=>{
         if(item['newest'] === 1){
             trades_count_5min[item['marketName']] += 1;
-            var trade_output = '! ' + getUnixTime() + ' ' + 
+            var trade_output = '! ' + commonFunctions.getUnixTime() + ' ' + 
             item['marketName'] + ' ' + 
             item['orderMode'] + ' ' + parseFloat(item['price']).noExponents() + ' ' + parseFloat(item['amount']).noExponents();
             console.log(trade_output);
@@ -96,7 +68,7 @@ async function getOrders(message, update){
     orders_count_5min[message['data']['symbol']] += message['data']['bids'].length + message['data']['asks'].length;
     // check if bids array is not Null
     if(message['data']['bids'].length > 0){
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['data']['symbol'] + ' B '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['data']['symbol'] + ' B '
         var pq = '';
         for(let i = 0; i < message['data']['bids'].length; i++){
             pq += message['data']['bids'][i][1] + '@' + message['data']['bids'][i][0] + '|';
@@ -113,7 +85,7 @@ async function getOrders(message, update){
 
     // check if asks array is not Null
     if(message['data']['asks'].length > 0){
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['data']['symbol'] + ' S '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['data']['symbol'] + ' S '
         var pq = '';
         for(let i = 0; i < message['data']['asks'].length; i++){
             pq += message['data']['asks'][i][1] + '@' + message['data']['asks'][i][0] + '|';
@@ -129,32 +101,9 @@ async function getOrders(message, update){
     }
 }
 
-
-async function stats(){
-    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
-
-    for(var key in trades_count_5min){
-        if(trades_count_5min[key] !== 0){
-            stat_line += `${key}:${trades_count_5min[key]} `;
-        }
-        trades_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
-        console.log(stat_line);
-    }
-
-    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
-
-    for(var key in orders_count_5min){
-        if(orders_count_5min[key] !== 0){
-            stat_line += `${key}:${orders_count_5min[key]} `;
-        }
-        orders_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
-        console.log(stat_line);
-    }
-    setTimeout(stats, 300000);
+async function sendStats(){
+    commonFunctions.stats(trades_count_5min, orders_count_5min);
+    setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 }
 
 
@@ -201,7 +150,7 @@ function Connect1(chunk){
             // error only occurrs in messages that confirming subs
             // error caused here is exchanges fault
             (async () => {
-                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
                 console.log(event.data);
               })();
         }
@@ -224,7 +173,7 @@ function Connect1(chunk){
     ws1.onerror = function(error) {
         console.log(`Error ${error} occurred in ws1`);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
           })();
     };
 }
@@ -277,7 +226,7 @@ function Connect2(chunk){
             // error only occurrs in messages that confirming subs
             // error caused here is exchanges fault
             (async () => {
-                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
                 console.log(event.data);
               })();
         }
@@ -300,14 +249,14 @@ function Connect2(chunk){
     ws2.onerror = function(error) {
         console.log(`Error ${error} occurred in ws2`);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
           })();
     };
 }
 
 // call metadata to execute
 Metadata();
-setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
+setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 
 function chunkArray(array, chunkSize) {
     const result = [];

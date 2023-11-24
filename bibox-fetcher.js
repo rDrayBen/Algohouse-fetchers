@@ -2,9 +2,9 @@ import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import zlib from 'zlib';
 import getenv from 'getenv';
+import * as commonFunctions from './CommonFunctions/CommonFunctions.js';
 
-// define the websocket and REST URLs
-// const wsUrl = 'wss://npush.bibox360.com';
+// define REST URL
 const restUrl = "https://api.bibox.com/v3/mdata/pairList";
 
 const response = await fetch(restUrl);
@@ -36,16 +36,11 @@ async function Metadata(){
 Metadata();
 
 
-//function to get current time in unix format
-function getUnixTime(){
-    return Math.floor(Date.now());
-}
-
 
 // func to print trades
 async function getTrades(message){
     trades_count_5min[message['d'][0].toUpperCase()] += 1;
-    var trade_output = '! ' + getUnixTime() + ' ' + 
+    var trade_output = '! ' + commonFunctions.getUnixTime() + ' ' + 
     message['d'][0].toUpperCase() + ' ' + 
     (message['d'][3] === '2' ? 'S ' : 'B ') + message['d'][1] + ' ' + message['d'][2];
     console.log(trade_output);
@@ -57,7 +52,7 @@ async function getSnaphots(message){
     orders_count_5min[message['d']['pair'].toUpperCase()] += message['d']['bids'].length + message['d']['asks'].length;
     // check if bids array is not Null
     if(message['d']['bids']){
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' B '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' B '
         var pq = '';
         for(let i = 0; i < message['d']['bids'].length; i++){
             pq += message['d']['bids'][i][1] + '@' + message['d']['bids'][i][0] + '|';
@@ -68,7 +63,7 @@ async function getSnaphots(message){
 
     // check if asks array is not Null
     if(message['d']['asks']){
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' S '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' S '
         var pq = '';
         for(let i = 0; i < message['d']['asks'].length; i++){
             pq += message['d']['asks'][i][1] + '@' + message['d']['asks'][i][0] + '|';
@@ -84,7 +79,7 @@ async function getDeltas(message){
     // check if bids array is not Null
     if(message['d']['add']){
         
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' B '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' B '
         var pq = '';
         if(message['d']['add']['bids']){
             orders_count_5min[message['d']['pair'].toUpperCase()] += message['d']['add']['bids'].length;
@@ -109,7 +104,7 @@ async function getDeltas(message){
 
     // check if asks array is not Null
     if(message['d']['add']){
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' S '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['d']['pair'].toUpperCase() + ' S '
         var pq = '';
         if(message['d']['add']['asks']){
             orders_count_5min[message['d']['pair'].toUpperCase()] += message['d']['add']['asks'].length;
@@ -135,31 +130,9 @@ async function getDeltas(message){
 
 }
 
-async function stats(){
-    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
-
-    for(var key in trades_count_5min){
-        if(trades_count_5min[key] !== 0){
-            stat_line += `${key}:${trades_count_5min[key]} `;
-        }
-        trades_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
-        console.log(stat_line);
-    }
-
-    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
-
-    for(var key in orders_count_5min){
-        if(orders_count_5min[key] !== 0){
-            stat_line += `${key}:${orders_count_5min[key]} `;
-        }
-        orders_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
-        console.log(stat_line);
-    }
-    setTimeout(stats, 300000);
+async function sendStats(){
+    commonFunctions.stats(trades_count_5min, orders_count_5min);
+    setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 }
 
 
@@ -268,6 +241,6 @@ function CreateInstance(){
     });
 }
 
-setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
+setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 CreateInstance();
 

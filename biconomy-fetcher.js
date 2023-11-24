@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import getenv from 'getenv';
+import * as commonFunctions from './CommonFunctions/CommonFunctions.js';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://www.biconomy.com/ws';
@@ -37,40 +38,12 @@ async function Metadata(){
     console.log('@MDEND')
 }
 
-//function to get current time in unix format
-function getUnixTime(){
-    return Math.floor(Date.now());
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-Number.prototype.noExponents = function() {
-    var data = String(this).split(/[eE]/);
-    if (data.length == 1) return data[0];
-  
-    var z = '',
-      sign = this < 0 ? '-' : '',
-      str = data[0].replace('.', ''),
-      mag = Number(data[1]) + 1;
-  
-    if (mag < 0) {
-      z = sign + '0.';
-      while (mag++) z += '0';
-      return z + str.replace(/^\-/, '');
-    }
-    mag -= str.length;
-    while (mag--) z += '0';
-    return str + z;
-}
-
 
 // func to print trades
 async function getTrades(message){
     trades_count_5min[message['params'][0]] += message['params'][1].length;
     message['params'][1].forEach((item)=>{
-        var trade_output = '! ' + getUnixTime() + ' ' + 
+        var trade_output = '! ' + commonFunctions.getUnixTime() + ' ' + 
         message['params'][0] + ' ' + 
         item['type'][0].toUpperCase() + ' ' + parseFloat(item['price']).noExponents() + ' ' + parseFloat(item['amount']).noExponents();
         console.log(trade_output);
@@ -83,7 +56,7 @@ async function getOrders(message, update){
     // check if bids array is not Null
     if(message['params'][1]['bids']){
         orders_count_5min[message['params'][2]] += message['params'][1]['bids'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['params'][2] + ' B '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['params'][2] + ' B '
         var pq = '';
         for(let i = 0; i < message['params'][1]['bids'].length; i++){
             pq += (parseFloat(message['params'][1]['bids'][i][1])).noExponents() + '@' + (parseFloat(message['params'][1]['bids'][i][0])).noExponents() + '|';
@@ -101,7 +74,7 @@ async function getOrders(message, update){
     // check if asks array is not Null
     if(message['params'][1]['asks']){
         orders_count_5min[message['params'][2]] += message['params'][1]['asks'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['params'][2] + ' S '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['params'][2] + ' S '
         var pq = '';
         for(let i = 0; i < message['params'][1]['asks'].length; i++){
             pq += (parseFloat(message['params'][1]['asks'][i][1])).noExponents() + '@' + (parseFloat(message['params'][1]['asks'][i][0])).noExponents() + '|';
@@ -118,32 +91,7 @@ async function getOrders(message, update){
 }
 
 
-async function stats(){
-    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
 
-    for(var key in trades_count_5min){
-        if(trades_count_5min[key] !== 0){
-            stat_line += `${key}:${trades_count_5min[key]} `;
-        }
-        trades_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
-        console.log(stat_line);
-    }
-
-    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
-
-    for(var key in orders_count_5min){
-        if(orders_count_5min[key] !== 0){
-            stat_line += `${key}:${orders_count_5min[key]} `;
-        }
-        orders_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
-        console.log(stat_line);
-    }
-    setTimeout(stats, 300000);
-}
 
 
 function Connect1(){
@@ -190,7 +138,7 @@ function Connect1(){
         }catch(e){
             // possible errors while parsing data to json format
             (async () => {
-                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                await commonFunctions.sleep(1000); // Sleep for 1000 milliseconds (1 second) 
                 console.log(event.data);
               })();
         }
@@ -213,11 +161,16 @@ function Connect1(){
     ws1.onerror = function(error) {
         console.log(error);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // Sleep for 1000 milliseconds (1 second) 
           })();
     };
 }
 
+
+async function sendStats(){
+    commonFunctions.stats(trades_count_5min, orders_count_5min);
+    setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
+}
   
 
 async function Connect2(index){
@@ -267,7 +220,7 @@ async function Connect2(index){
             // error only occurrs in messages that confirming subs
             // error caused here is exchanges fault
             (async () => {
-                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                await commonFunctions.sleep(1000); // Sleep for 1000 milliseconds (1 second) 
                 console.log(event.data);
               })();
         }
@@ -290,7 +243,7 @@ async function Connect2(index){
     ws2.onerror = function(error) {
         console.log(error);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // Sleep for 1000 milliseconds (1 second) 
           })();
     };
     
@@ -298,7 +251,7 @@ async function Connect2(index){
 
 // call metadata to execute
 Metadata();
-setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
+setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 
 Connect1();
 
@@ -306,7 +259,7 @@ if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS
     var wsArr = [];
     for(let i = 0; i < currencies.length; i++){
         wsArr.push(Connect2(i));
-        await sleep(500);
+        await commonFunctions.sleep(500);
     }
 }
 

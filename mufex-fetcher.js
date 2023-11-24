@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import getenv from 'getenv';
+import * as commonFunctions from './CommonFunctions/CommonFunctions.js';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://ws2.mufex.finance/realtime_public';
@@ -10,7 +11,6 @@ const response = await fetch(restUrl);
 //extract JSON from the http response
 const myJson = await response.json(); 
 var currencies = [];
-var request = [];
 var trades_count_5min = {};
 var orders_count_5min = {};
 
@@ -33,40 +33,10 @@ async function Metadata(){
 }
 
 
-//function to get current time in unix format
-function getUnixTime(){
-    return Math.floor(Date.now());
-}
-
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-Number.prototype.noExponents = function() {
-    var data = String(this).split(/[eE]/);
-    if (data.length == 1) return data[0];
-  
-    var z = '',
-      sign = this < 0 ? '-' : '',
-      str = data[0].replace('.', ''),
-      mag = Number(data[1]) + 1;
-  
-    if (mag < 0) {
-      z = sign + '0.';
-      while (mag++) z += '0';
-      return z + str.replace(/^\-/, '');
-    }
-    mag -= str.length;
-    while (mag--) z += '0';
-    return str + z;
-}
-
-
 async function getTrades(message){
     trades_count_5min[message['data']['s']] += message['data']['d'].length;
     message['data']['d'].forEach((trade)=>{
-        var trade_output = '! ' + getUnixTime() + ' ' + message['data']['s'] + ' ' + 
+        var trade_output = '! ' + commonFunctions.getUnixTime() + ' ' + message['data']['s'] + ' ' + 
             (trade[4] === 'b' ? 'B' : 'S') + ' ' + parseFloat(trade[1]).noExponents() + ' ' + parseFloat(trade[2]).noExponents();
         console.log(trade_output);
     })
@@ -77,7 +47,7 @@ async function getOrders(message, update){
     // check if bids array is not Null
     if(message['data']['b'].length > 0){
         orders_count_5min[message['data']['s']] += message['data']['b'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['data']['s'] + ' B '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['data']['s'] + ' B '
         var pq = '';
         for(let i = 0; i < message['data']['b'].length; i++){
             pq += parseFloat(message['data']['b'][i][1]).noExponents() + '@' + parseFloat(message['data']['b'][i][0]).noExponents() + '|';
@@ -95,7 +65,7 @@ async function getOrders(message, update){
     // check if asks array is not Null
     if(message['data']['a'].length > 0){
         orders_count_5min[message['data']['s']] += message['data']['a'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['data']['s'] + ' S '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['data']['s'] + ' S '
         var pq = '';
         for(let i = 0; i < message['data']['a'].length; i++){
             pq += parseFloat(message['data']['a'][i][1]).noExponents() + '@' + parseFloat(message['data']['a'][i][0]).noExponents() + '|';
@@ -111,31 +81,9 @@ async function getOrders(message, update){
     }
 }
 
-async function stats(){
-    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
-
-    for(var key in trades_count_5min){
-        if(trades_count_5min[key] !== 0){
-            stat_line += `${key}:${trades_count_5min[key]} `;
-        }
-        trades_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
-        console.log(stat_line);
-    }
-
-    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
-
-    for(var key in orders_count_5min){
-        if(orders_count_5min[key] !== 0){
-            stat_line += `${key}:${orders_count_5min[key]} `;
-        }
-        orders_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
-        console.log(stat_line);
-    }
-    setTimeout(stats, 300000);
+async function sendStats(){
+    commonFunctions.stats(trades_count_5min, orders_count_5min);
+    setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 }
 
 
@@ -149,7 +97,7 @@ async function Connect(pair){
               ws.send(JSON.stringify(
                 {
                     "op":"ping",
-                    "args":[getUnixTime()]
+                    "args":[commonFunctions.getUnixTime()]
                 }
               ));
               console.log('Ping request sent');
@@ -204,7 +152,7 @@ async function Connect(pair){
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
             (async () => {
-                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
                 console.log(event.data);
               })();
         }
@@ -229,15 +177,15 @@ async function Connect(pair){
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
           })();
     };
 }
 
 Metadata();
-setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
+setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 var connections = [];
 for(let pair of currencies){
     connections.push(Connect(pair));
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await commonFunctions.sleep(100);
 }

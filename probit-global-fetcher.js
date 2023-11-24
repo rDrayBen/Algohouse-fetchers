@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import getenv from 'getenv';
+import * as commonFunctions from './CommonFunctions/CommonFunctions.js';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://www.probit.com/api/exchange/v1/ws';
@@ -33,40 +34,10 @@ async function Metadata(){
 }
 
 
-//function to get current time in unix format
-function getUnixTime(){
-    return Math.floor(Date.now());
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-
-Number.prototype.noExponents = function() {
-    var data = String(this).split(/[eE]/);
-    if (data.length == 1) return data[0];
-  
-    var z = '',
-      sign = this < 0 ? '-' : '',
-      str = data[0].replace('.', ''),
-      mag = Number(data[1]) + 1;
-  
-    if (mag < 0) {
-      z = sign + '0.';
-      while (mag++) z += '0';
-      return z + str.replace(/^\-/, '');
-    }
-    mag -= str.length;
-    while (mag--) z += '0';
-    return str + z;
-}
-
-
 async function getTrades(message){
     trades_count_5min[message['market_id']] += message['recent_trades'].length;
     message['recent_trades'].forEach((item)=>{
-        var trade_output = '! ' + getUnixTime() + ' ' + message['market_id'] + ' ' + 
+        var trade_output = '! ' + commonFunctions.getUnixTime() + ' ' + message['market_id'] + ' ' + 
         item['side'][0].toUpperCase() + ' ' + parseFloat(item['price']).noExponents() + ' ' + parseFloat(item['quantity']).noExponents();
         console.log(trade_output);
     });
@@ -77,7 +48,7 @@ async function getOrders(message, update){
     // check if bids array is not Null
     if(message['order_books_l0']){
         orders_count_5min[message['market_id']] += message['order_books_l0'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['market_id'] + ' B '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['market_id'] + ' B '
         var pq = '';
         for(let i = 0; i < message['order_books_l0'].length; i++){
             if(message['order_books_l0'][i]['side'] === 'buy'){
@@ -95,7 +66,7 @@ async function getOrders(message, update){
             }
         }
 
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['market_id'] + ' S '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['market_id'] + ' S '
         var pq = '';
         for(let i = 0; i < message['order_books_l0'].length; i++){
             if(message['order_books_l0'][i]['side'] === 'sell'){
@@ -115,31 +86,9 @@ async function getOrders(message, update){
     }
 }
 
-async function stats(){
-    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
-
-    for(var key in trades_count_5min){
-        if(trades_count_5min[key] !== 0){
-            stat_line += `${key}:${trades_count_5min[key]} `;
-        }
-        trades_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
-        console.log(stat_line);
-    }
-
-    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
-
-    for(var key in orders_count_5min){
-        if(orders_count_5min[key] !== 0){
-            stat_line += `${key}:${orders_count_5min[key]} `;
-        }
-        orders_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
-        console.log(stat_line);
-    }
-    setTimeout(stats, 300000);
+async function sendStats(){
+    commonFunctions.stats(trades_count_5min, orders_count_5min);
+    setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 }
 
 
@@ -191,7 +140,7 @@ async function Connect(pair){
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
             (async () => {
-                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
                 console.log(event.data);
               })();
         }
@@ -216,18 +165,18 @@ async function Connect(pair){
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
           })();
     };
 }
 
 Metadata();
-setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
+setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 var connections = [];
 
 for(let pair of currencies){
     connections.push(Connect(pair));
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await commonFunctions.sleep(400);
 }
 
 
