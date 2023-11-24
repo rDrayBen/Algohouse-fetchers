@@ -1,6 +1,7 @@
 import time
 import sys
 
+# get time in unix format
 def get_unix_time():
 	return round(time.time() * 1000)
 
