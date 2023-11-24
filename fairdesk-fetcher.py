@@ -3,7 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
-import sys
+from CommonFunctions.CommonFunctions import get_unix_time, stats
 import os
 
 # currency_url = 'https://www.fairdesk.com/user/v1/public/spot/settings/product'        #inactive
@@ -44,11 +44,6 @@ async def metadata():
 
 	print('@MDEND')
 
-
-def get_unix_time():
-	return round(time.time() * 1000)
-
-
 def get_trades(var, start_time):
 	trade_data = var
 	elapsed_time = time.time() - start_time
@@ -57,13 +52,8 @@ def get_trades(var, start_time):
 			  'B' if trade_data['m'] else 'S', trade_data['p'],
 			  trade_data["q"], flush=True)
 		symbol_trade_count_for_5_minutes[trade_data['s'].upper()] += 1
-		# print("symbol_count_for_5_minutes[trade_data['s']]:", trade_data['s'])
-		# print(f"symbol_count_for_5_minutes[trade_data['s']] for el {trade_data['s']}:",
-		# 	trade_data['s'], symbol_count_for_5_minutes[trade_data['s']])
 
-
-
-def get_order_books(var, update):
+def get_order_books(var):
 	order_data = var
 	if 'a' in order_data and len(order_data["a"]) != 0:
 		symbol_orderbook_count_for_5_minutes[order_data['s'].upper()] += len(order_data["a"])
@@ -81,7 +71,6 @@ def get_order_books(var, update):
 
 		print(answer + " R")
 
-
 async def heartbeat(ws):
 	while True:
 		await ws.send(json.dumps({
@@ -89,36 +78,20 @@ async def heartbeat(ws):
 		}))
 		await asyncio.sleep(5)
 
-
-#trade and orderbook stats output
-async def print_stats():
+# trade and orderbook stats output
+async def print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes):
 	time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
 	if time_to_wait != 300:
 		await asyncio.sleep(time_to_wait)
 	while True:
-		data1 = "# LOG:CAT=trades_stats:MSG= "
-		data2 = " ".join(
-			key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if value != 0)
-		sys.stdout.write(data1 + data2)
-		sys.stdout.write("\n")
-		for key in symbol_trade_count_for_5_minutes:
-			symbol_trade_count_for_5_minutes[key] = 0
-
-		data3 = "# LOG:CAT=orderbooks_stats:MSG= "
-		data4 = " ".join(
-			key.upper() + ":" + str(value) for key, value in symbol_orderbook_count_for_5_minutes.items() if
-			value != 0)
-		sys.stdout.write(data3 + data4)
-		sys.stdout.write("\n")
-		for key in symbol_orderbook_count_for_5_minutes:
-			symbol_orderbook_count_for_5_minutes[key] = 0
+		stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes)
 		await asyncio.sleep(300)
 
 async def main():
 	# create task to get metadata about each pair of symbols
 	meta_data = asyncio.create_task(metadata())
 	# create task to get trades and orderbooks stats output
-	stats_task = asyncio.create_task(print_stats())
+	stats_task = asyncio.create_task(print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes))
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
@@ -147,20 +120,18 @@ async def main():
 
 			while True:
 				data = await ws.recv()
-
 				dataJSON = json.loads(data)
 
 				if "e" in dataJSON:
 
 					try:
-
 						# if received data is about trades
 						if dataJSON['e'] == 'trade':
 							get_trades(dataJSON, start_time)
 
 						# if received data is about updates and full orderbooks
 						if dataJSON['e'] == 'depthUpdate':
-							get_order_books(dataJSON, update=False)
+							get_order_books(dataJSON)
 
 						else:
 							pass

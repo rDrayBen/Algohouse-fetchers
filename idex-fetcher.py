@@ -4,7 +4,7 @@ import websockets
 import time
 import asyncio
 import os
-import sys
+from CommonFunctions.CommonFunctions import get_unix_time, stats
 
 currency_url = 'https://api-matic.idex.io/v1/markets'
 answer = requests.get(currency_url)
@@ -29,7 +29,6 @@ symbol_orderbook_count_for_5_minutes = {}
 for i in range(len(list_currencies)):
 	symbol_orderbook_count_for_5_minutes[list_currencies[i]] = 0
 
-
 async def subscribe(ws, symbol):
 	while True:
 		if not is_subscribed_trades[symbol]:
@@ -43,10 +42,7 @@ async def subscribe(ws, symbol):
 							f"{symbol}"
 						]}]
 			}))
-
-
 			await asyncio.sleep(0.01)
-
 
 		if not is_subscribed_trades[symbol] and os.getenv("SKIP_ORDERBOOKS") == None:  # don't subscribe or report orderbook changes
 			# create the subscription for full orderbooks and updates
@@ -67,7 +63,6 @@ async def subscribe(ws, symbol):
 
 		await asyncio.sleep(2000)
 
-
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in currencies:
@@ -79,11 +74,6 @@ async def metadata():
 
 	print('@MDEND')
 
-
-def get_unix_time():
-	return round(time.time() * 1000)
-
-
 def get_trades(var):
 	trade_data = var
 	if 'm' in trade_data["data"]:
@@ -92,7 +82,6 @@ def get_trades(var):
 				trade_data["data"]["q"], flush=True)
 		symbol_trade_count_for_5_minutes[trade_data["data"]["m"]] += 1
 
-
 def get_order_books(var):
 	order_data = var
 	if 'a' in order_data['data'] and len(order_data["data"]["a"]) != 0:
@@ -100,19 +89,14 @@ def get_order_books(var):
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['data']['m'] + ' S '
 		pq = "|".join(el[1] + "@" + el[0] for el in order_data["data"]["a"])
 		answer = order_answer + pq
-
 		print(answer)
-
 
 	if 'b' in order_data['data'] and len(order_data["data"]["b"]) != 0:
 		symbol_orderbook_count_for_5_minutes[order_data['data']['m']] += len(order_data["data"]["b"])
 		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['data']['m'] + ' B '
 		pq = "|".join(el[1] + "@" + el[0] for el in order_data["data"]["b"])
 		answer = order_answer + pq
-
 		print(answer)
-
-
 
 async def heartbeat(ws):
 	while True:
@@ -121,29 +105,13 @@ async def heartbeat(ws):
 		}))
 		await asyncio.sleep(5)
 
-
 # trade and orderbook stats output
-async def print_stats():
+async def print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes):
 	time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
 	if time_to_wait != 300:
 		await asyncio.sleep(time_to_wait)
 	while True:
-		data1 = "# LOG:CAT=trades_stats:MSG= "
-		data2 = " ".join(
-			key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if value != 0)
-		sys.stdout.write(data1 + data2)
-		sys.stdout.write("\n")
-		for key in symbol_trade_count_for_5_minutes:
-			symbol_trade_count_for_5_minutes[key] = 0
-
-		data3 = "# LOG:CAT=orderbooks_stats:MSG= "
-		data4 = " ".join(
-			key.upper() + ":" + str(value) for key, value in symbol_orderbook_count_for_5_minutes.items() if
-			value != 0)
-		sys.stdout.write(data3 + data4)
-		sys.stdout.write("\n")
-		for key in symbol_orderbook_count_for_5_minutes:
-			symbol_orderbook_count_for_5_minutes[key] = 0
+		stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes)
 		await asyncio.sleep(300)
 
 async def socket(symbol):
@@ -189,8 +157,8 @@ async def handler():
 	# create task to get metadata about each pair of symbols
 	meta_data = asyncio.create_task(metadata())
 	# create task to get trades and orderbooks stats output
-	stats_task = asyncio.create_task(print_stats())
-	tasks=[]
+	stats_task = asyncio.create_task(print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes))
+	tasks = []
 	for symbol in list_currencies:
 		tasks.append(asyncio.create_task(socket(symbol)))
 		await asyncio.sleep(1)

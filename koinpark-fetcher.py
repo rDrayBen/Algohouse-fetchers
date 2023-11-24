@@ -3,7 +3,7 @@ import requests
 import asyncio
 import time
 import websockets
-import sys
+from CommonFunctions.CommonFunctions import get_unix_time, stats
 import os
 
 API_URL = 'https://api.koinpark.com'
@@ -27,11 +27,6 @@ symbol_orderbook_count_for_5_minutes = {}
 for i in range(len(symbols)):
 	symbol_orderbook_count_for_5_minutes[symbols[i].upper()] = 0
 
-
-# get time in unix format
-def get_unix_time():
-	return round(time.time() * 1000)
-
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in response.json()["data"]:
@@ -42,12 +37,10 @@ async def metadata():
 
 	print('@MDEND')
 
-
 async def heartbeat(ws):
 	while True:
 		await ws.send(message='3')
 		await asyncio.sleep(PING_TIMEOUT)
-
 
 # put the trade information in output format
 def get_trades(var):
@@ -90,40 +83,23 @@ def get_order_books(var, depth_update):
 		answer_B = order_answer_B + pq_B
 		print(answer_B)
 
-
 async def subscribe(ws):
 	await ws.send(message='40')
 
-
-#trade and orderbook stats output
-async def print_stats():
+# trade and orderbook stats output
+async def print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes):
 	time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
 	if time_to_wait != 300:
 		await asyncio.sleep(time_to_wait)
 	while True:
-		data1 = "# LOG:CAT=trades_stats:MSG= "
-		data2 = " ".join(
-			key.upper() + ":" + str(value) for key, value in symbol_trade_count_for_5_minutes.items() if value != 0)
-		sys.stdout.write(data1 + data2)
-		sys.stdout.write("\n")
-		for key in symbol_trade_count_for_5_minutes:
-			symbol_trade_count_for_5_minutes[key] = 0
-
-		data3 = "# LOG:CAT=orderbooks_stats:MSG= "
-		data4 = " ".join(
-			key.upper() + ":" + str(value) for key, value in symbol_orderbook_count_for_5_minutes.items() if
-			value != 0)
-		sys.stdout.write(data3 + data4)
-		sys.stdout.write("\n")
-		for key in symbol_orderbook_count_for_5_minutes:
-			symbol_orderbook_count_for_5_minutes[key] = 0
+		stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes)
 		await asyncio.sleep(300)
 
 async def main():
 	# create task to get metadata about each pair of symbols
 	meta_data = asyncio.create_task(metadata())
 	# create task to get trades and orderbooks stats output
-	stats_task = asyncio.create_task(print_stats())
+	stats_task = asyncio.create_task(print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes))
 	async for ws in websockets.connect(WS_URL):
 		try:
 			sub_task = asyncio.create_task(subscribe(ws))
