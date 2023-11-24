@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import getenv from 'getenv';
-import fs from "fs";
+import * as commonFunctions from './CommonFunctions/CommonFunctions.js';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://api.hyperliquid.xyz/ws';
@@ -43,40 +43,10 @@ async function Metadata(){
 }
 
 
-//function to get current time in unix format
-function getUnixTime(){
-    return Math.floor(Date.now());
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-
-Number.prototype.noExponents = function() {
-    var data = String(this).split(/[eE]/);
-    if (data.length == 1) return data[0];
-  
-    var z = '',
-      sign = this < 0 ? '-' : '',
-      str = data[0].replace('.', ''),
-      mag = Number(data[1]) + 1;
-  
-    if (mag < 0) {
-      z = sign + '0.';
-      while (mag++) z += '0';
-      return z + str.replace(/^\-/, '');
-    }
-    mag -= str.length;
-    while (mag--) z += '0';
-    return str + z;
-}
-
-
 async function getTrades(message){
     message['data'].forEach((trade)=>{
         trades_count_5min[trade['coin'] + '-USD'] += 1;
-        var trade_output = '! ' + getUnixTime() + ' ' + trade['coin'] + '-USD' + ' ' + 
+        var trade_output = '! ' + commonFunctions.getUnixTime() + ' ' + trade['coin'] + '-USD' + ' ' + 
             (trade['side'] === 'B' ? 'B' : 'S') + ' ' + parseFloat(trade['px']).noExponents() +
             ' ' + parseFloat(trade['sz']).noExponents();
         console.log(trade_output);
@@ -86,9 +56,9 @@ async function getTrades(message){
 
 
 async function getOrders(message){
-    var bids_order_answer = '$ ' + getUnixTime() + ' ' + message['data']['coin'] + '-USD' + ' B '
+    var bids_order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['data']['coin'] + '-USD' + ' B '
     var bids_pq = '';
-    var asks_order_answer = '$ ' + getUnixTime() + ' ' + message['data']['coin'] + '-USD' + ' S '
+    var asks_order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['data']['coin'] + '-USD' + ' S '
     var asks_pq = '';
     // check if bids array is not Null
     if(message['data']['levels'][0].length > 0){
@@ -123,31 +93,9 @@ async function getOrders(message){
     
 }
 
-async function stats(){
-    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
-
-    for(var key in trades_count_5min){
-        if(trades_count_5min[key] !== 0){
-            stat_line += `${key}:${trades_count_5min[key]} `;
-        }
-        trades_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
-        console.log(stat_line);
-    }
-
-    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
-
-    for(var key in orders_count_5min){
-        if(orders_count_5min[key] !== 0){
-            stat_line += `${key}:${orders_count_5min[key]} `;
-        }
-        orders_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
-        console.log(stat_line);
-    }
-    setTimeout(stats, 300000);
+async function sendStats(){
+    commonFunctions.stats(trades_count_5min, orders_count_5min);
+    setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 }
 
 
@@ -212,7 +160,7 @@ async function Connect(){
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
             (async () => {
-                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
                 console.log(event.data);
               })();
         }
@@ -237,12 +185,12 @@ async function Connect(){
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
           })();
     };
 }
 
 
 Metadata();
-setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
+setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 Connect();

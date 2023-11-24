@@ -2,6 +2,7 @@ import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import zlib from 'zlib';
 import getenv from 'getenv';
+import * as commonFunctions from './CommonFunctions/CommonFunctions.js';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://ws.dcoinpro.com/kline-api/ws';
@@ -37,16 +38,6 @@ async function Metadata(){
 }
 
 
-//function to get current time in unix format
-function getUnixTime(){
-    return Math.floor(Date.now());
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-
 // func to print trades
 async function getTrades(message){
     message['tick']['data'].forEach((item)=>{
@@ -56,7 +47,7 @@ async function getTrades(message){
 
         trades_count_5min[pair_name.toUpperCase()] += 1;
 
-        var trade_output = '! ' + getUnixTime() + ' ' + 
+        var trade_output = '! ' + commonFunctions.getUnixTime() + ' ' + 
         pair_name.toUpperCase() + ' ' + 
         item['side'][0] + ' ' + item['price'] + ' ' + item['vol'];
         console.log(trade_output);
@@ -73,7 +64,7 @@ async function getOrders(message, update){
     // check if bids array is not Null
     if(message['tick']['buys'].length > 0){
         orders_count_5min[pair_name.toUpperCase()] += message['tick']['buys'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + pair_name.toUpperCase() + ' B '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + pair_name.toUpperCase() + ' B '
         var pq = '';
         for(let i = 0; i < message['tick']['buys'].length; i++){
             pq += message['tick']['buys'][i][1] + '@' + message['tick']['buys'][i][0] + '|';
@@ -91,7 +82,7 @@ async function getOrders(message, update){
     // check if asks array is not Null
     if(message['tick']['asks'].length > 0){
         orders_count_5min[pair_name.toUpperCase()] += message['tick']['asks'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + pair_name.toUpperCase() + ' S '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + pair_name.toUpperCase() + ' S '
         var pq = '';
         for(let i = 0; i < message['tick']['asks'].length; i++){
             pq += message['tick']['asks'][i][1] + '@' + message['tick']['asks'][i][0] + '|';
@@ -107,31 +98,9 @@ async function getOrders(message, update){
     }
 }
 
-async function stats(){
-    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
-
-    for(var key in trades_count_5min){
-        if(trades_count_5min[key] !== 0){
-            stat_line += `${key}:${trades_count_5min[key]} `;
-        }
-        trades_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
-        console.log(stat_line);
-    }
-
-    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
-
-    for(var key in orders_count_5min){
-        if(orders_count_5min[key] !== 0){
-            stat_line += `${key}:${orders_count_5min[key]} `;
-        }
-        orders_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
-        console.log(stat_line);
-    }
-    setTimeout(stats, 300000);
+async function sendStats(){
+    commonFunctions.stats(trades_count_5min, orders_count_5min);
+    setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 }
 
 
@@ -208,7 +177,7 @@ function Connect1(){
                 }
             }catch(e){
                 (async () => {
-                    await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                    await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
                   })();
             }   
         });  
@@ -231,7 +200,7 @@ function Connect1(){
     ws1.onerror = function(error) {
         console.log(`Error ${error} occurred in ws1`);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
           })();
     };
 }
@@ -239,7 +208,6 @@ function Connect1(){
 
 // call metadata to execute
 Metadata();
-setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
-
+setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 Connect1();
 

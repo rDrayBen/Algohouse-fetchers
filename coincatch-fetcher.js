@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import getenv from 'getenv';
+import * as commonFunctions from './CommonFunctions/CommonFunctions.js';
 
 
 var CURRENT_MODE = 'SPOT';
@@ -24,36 +25,6 @@ if (args.length > 0) {
     CURRENT_MODE = 'SPOT';
 }
 
-
-
-//function to get current time in unix format
-function getUnixTime(){
-    return Math.floor(Date.now());
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-
-Number.prototype.noExponents = function() {
-    var data = String(this).split(/[eE]/);
-    if (data.length == 1) return data[0];
-
-    var z = '',
-    sign = this < 0 ? '-' : '',
-    str = data[0].replace('.', ''),
-    mag = Number(data[1]) + 1;
-
-    if (mag < 0) {
-    z = sign + '0.';
-    while (mag++) z += '0';
-    return z + str.replace(/^\-/, '');
-    }
-    mag -= str.length;
-    while (mag--) z += '0';
-    return str + z;
-}
 
 const SpotWsUrl = 'wss://stream.coincatch.com/spot/v1/stream?compress=false';
 const SpotRestUrl = "https://api.coincatch.com/api/mix/v1/market/contracts?productType=umcbl";
@@ -108,7 +79,6 @@ async function Metadata(){
             console.log(pair_data);
         })
         console.log('@MDEND');
-        console.log(trades_count_5min, 'SPOT');
     }else if(CURRENT_MODE === 'FUTURES'){
         myJson['data']['listDTOS'][0]['symbolDTOList'].forEach((item)=>{
             trades_count_5min[item['symbolDisplayName']] = 0;
@@ -118,7 +88,6 @@ async function Metadata(){
             console.log(pair_data);
         })
         console.log('@MDEND');
-        console.log(trades_count_5min, 'FUTURES');
     }   
 }
 
@@ -126,7 +95,7 @@ async function Metadata(){
 async function getTrades(message){
     trades_count_5min[message['arg']['instId']] += message['data'].length;
     message['data'].forEach((trade)=>{
-        var trade_output = '! ' + getUnixTime() + ' ' + message['arg']['instId'] + ' ' + 
+        var trade_output = '! ' + commonFunctions.getUnixTime() + ' ' + message['arg']['instId'] + ' ' + 
         (trade[3] === 1 ? 'S' : 'B') + ' ' + parseFloat(trade[1]).noExponents() + ' ' + parseFloat(trade[2]).noExponents();
         console.log(trade_output);
     })
@@ -137,7 +106,7 @@ async function getOrders(message){
     // check if bids array is not Null
     if(message['data'][0]['bids'] && message['data'][0]['bids'].length > 0){
         orders_count_5min[message['arg']['instId']] += message['data'][0]['bids'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['arg']['instId'] + ' B '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['arg']['instId'] + ' B '
         var pq = '';
         for(let i = 0; i < message['data'][0]['bids'].length; i++){
             pq += parseFloat(message['data'][0]['bids'][i][1]).noExponents() + '@' + parseFloat(message['data'][0]['bids'][i][0]).noExponents() + '|';
@@ -149,7 +118,7 @@ async function getOrders(message){
     // check if asks array is not Null
     if(message['data'][0]['asks'] && message['data'][0]['asks'].length > 0){
         orders_count_5min[message['arg']['instId']] += message['data'][0]['asks'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['arg']['instId'] + ' S '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['arg']['instId'] + ' S '
         var pq = '';
         for(let i = 0; i < message['data'][0]['asks'].length; i++){
             pq += parseFloat(message['data'][0]['asks'][i][1]).noExponents() + '@' + parseFloat(message['data'][0]['asks'][i][0]).noExponents() + '|';
@@ -160,31 +129,9 @@ async function getOrders(message){
 }
 
 
-async function stats(){
-    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
-
-    for(var key in trades_count_5min){
-        if(trades_count_5min[key] !== 0){
-            stat_line += `${key}:${trades_count_5min[key]} `;
-        }
-        trades_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
-        console.log(stat_line);
-    }
-
-    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
-
-    for(var key in orders_count_5min){
-        if(orders_count_5min[key] !== 0){
-            stat_line += `${key}:${orders_count_5min[key]} `;
-        }
-        orders_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
-        console.log(stat_line);
-    }
-    setTimeout(stats, 300000);
+async function sendStats(){
+    commonFunctions.stats(trades_count_5min, orders_count_5min);
+    setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 }
 
 
@@ -305,7 +252,7 @@ async function Connect(pair){
         }catch(e){
             // skip confirmation messages cause they can`t be parsed into JSON format without an error
             (async () => {
-                await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+                await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
                 console.log(event.data);
               })();
         }
@@ -330,14 +277,14 @@ async function Connect(pair){
     ws.onerror = function(error) {
         console.log(`Error ${error} occurred`);
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
           })();
     };
 }
 
 
 Metadata();
-setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
+setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 
 var connection = [];
 

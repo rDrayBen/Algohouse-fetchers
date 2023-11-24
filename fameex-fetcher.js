@@ -2,6 +2,7 @@ import WebSocket from 'ws';
 import fetch from 'node-fetch';
 import zlib from 'zlib';
 import getenv from 'getenv';
+import * as commonFunctions from './CommonFunctions/CommonFunctions.js';
 
 // define the websocket and REST URLs
 const wsUrl = 'wss://www.fameex.com/spot';
@@ -36,20 +37,11 @@ async function Metadata(){
 }
 
 
-//function to get current time in unix format
-function getUnixTime(){
-    return Math.floor(Date.now());
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
 // func to print trades
 async function getTrades(message){
     message['data'].forEach((item)=>{
         trades_count_5min[item['symbol']] += 1;
-        var trade_output = '! ' + getUnixTime() + ' ' + 
+        var trade_output = '! ' + commonFunctions.getUnixTime() + ' ' + 
         item['symbol'] + ' ' + 
         (item['side'] === 1 ? 'B' : 'S') + ' ' + item['price'] + ' ' + item['amount'];
         console.log(trade_output);
@@ -62,7 +54,7 @@ async function getOrders(message, update){
     // check if bids array is not Null
     if(message['data']['bids']){
         orders_count_5min[message['data']['symbol']] += message['data']['bids'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['data']['symbol'] + ' B '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['data']['symbol'] + ' B '
         var pq = '';
         message['data']['bids'].forEach((element)=>{
             pq += element[1] + '@' + element[0] + '|';
@@ -80,7 +72,7 @@ async function getOrders(message, update){
     // check if asks array is not Null
     if(message['data']['asks']){
         orders_count_5min[message['data']['symbol']] += message['data']['asks'].length;
-        var order_answer = '$ ' + getUnixTime() + ' ' + message['data']['symbol'] + ' S '
+        var order_answer = '$ ' + commonFunctions.getUnixTime() + ' ' + message['data']['symbol'] + ' S '
         var pq = '';
         message['data']['asks'].forEach((element)=>{
             pq += element[1] + '@' + element[0] + '|';
@@ -96,31 +88,9 @@ async function getOrders(message, update){
     }
 }
 
-async function stats(){
-    var stat_line = '# LOG:CAT=trades_stats:MSG= ';
-
-    for(var key in trades_count_5min){
-        if(trades_count_5min[key] !== 0){
-            stat_line += `${key}:${trades_count_5min[key]} `;
-        }
-        trades_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=trades_stats:MSG= '){
-        console.log(stat_line);
-    }
-
-    stat_line = '# LOG:CAT=orderbook_stats:MSG= ';
-
-    for(var key in orders_count_5min){
-        if(orders_count_5min[key] !== 0){
-            stat_line += `${key}:${orders_count_5min[key]} `;
-        }
-        orders_count_5min[key] = 0;
-    }
-    if (stat_line !== '# LOG:CAT=orderbook_stats:MSG= '){
-        console.log(stat_line);
-    }
-    setTimeout(stats, 300000);
+async function sendStats(){
+    commonFunctions.stats(trades_count_5min, orders_count_5min);
+    setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 }
   
 
@@ -195,7 +165,7 @@ async function ConnectTrades(index){
     // func to handle errors
     wsTrade.onerror = function(error) {
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
             console.log(error);
           })();
     };
@@ -271,7 +241,7 @@ async function ConnectDepth(index){
     // func to handle errors
     wsDepth.onerror = function(error) {
         (async () => {
-            await sleep(1000); // Sleep for 1000 milliseconds (1 second) 
+            await commonFunctions.sleep(1000); // commonFunctions.sleep for 1000 milliseconds (1 second) 
             console.log(error);
           })();
     };
@@ -279,12 +249,12 @@ async function ConnectDepth(index){
 }
 
 Metadata();
-setTimeout(stats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
+setTimeout(sendStats, parseFloat(5 - ((Date.now() / 60000) % 5)) * 60000);
 
 var wsTradesArray = [];
 for(let i = 0; i < currencies.length; i++){
     wsTradesArray.push(ConnectTrades(i));
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await commonFunctions.sleep(100);
 }
 
 
@@ -292,6 +262,6 @@ if(getenv.string("SKIP_ORDERBOOKS", '') === '' || getenv.string("SKIP_ORDERBOOKS
     var wsDepthArray = [];
     for(let i = 0; i < currencies.length; i++){
         wsDepthArray.push(ConnectDepth(i));
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await commonFunctions.sleep(100);
     }
 } 
