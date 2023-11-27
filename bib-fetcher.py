@@ -103,7 +103,8 @@ async def print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_f
 		await asyncio.sleep(time_to_wait)
 	while True:
 		stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes)
-		await asyncio.sleep(300)
+		time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
+		await asyncio.sleep(time_to_wait)
 
 # process the situations when the server awaits "ping" request
 async def heartbeat(ws):

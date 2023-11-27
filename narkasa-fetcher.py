@@ -74,7 +74,9 @@ async def print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_f
 		await asyncio.sleep(time_to_wait)
 	while True:
 		stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes)
-		await asyncio.sleep(300)
+		await asyncio.sleep(1)
+		time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
+		await asyncio.sleep(time_to_wait)
 
 async def main():
 	# create task to get metadata about each pair of symbols
