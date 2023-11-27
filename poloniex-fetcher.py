@@ -4,6 +4,7 @@ import websockets
 import time
 import asyncio
 import os
+from CommonFunctions.CommonFunctions import get_unix_time, stats
 
 currency_url = 'https://api.poloniex.com/markets'
 answer = requests.get(currency_url)
@@ -29,10 +30,6 @@ async def metadata():
                         str(pair['symbolTradeLimit']['priceScale']) + ' 1 1 0 0'
             print(pair_data, flush=True)
     print('@MDEND')
-
-
-def get_unix_time():
-    return round(time.time() * 1000)
 
 
 def get_trades(message):
@@ -105,26 +102,15 @@ async def subscribe(ws):
         await asyncio.sleep(3000)
 
 
-async def stats():
-    time_to_wait = float(5 - ((time.time() / 60) % 5)) * 60
-    await asyncio.sleep(time_to_wait)
+# trade and orderbook stats output
+async def print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes):
+    time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
+    if time_to_wait != 300:
+        await asyncio.sleep(time_to_wait)
     while True:
-        stat_line = '# LOG:CAT=trades_stats:MSG= '
-        for symbol, amount in trades_count_5min.items():
-            if amount != 0:
-                stat_line += f"{symbol}:{amount} "
-            trades_count_5min[symbol] = 0
-        if stat_line != '# LOG:CAT=trades_stats:MSG= ':
-            print(stat_line)
-
-        stat_line = '# LOG:CAT=orderbook_stats:MSG= '
-        for symbol, amount in orders_count_5min.items():
-            if amount != 0:
-                stat_line += f"{symbol}:{amount} "
-            orders_count_5min[symbol] = 0
-        if stat_line != '# LOG:CAT=orderbook_stats:MSG= ':
-            print(stat_line)
-        await asyncio.sleep(60)
+        stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes)
+        time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
+        await asyncio.sleep(time_to_wait)
 
 
 async def main():
@@ -137,7 +123,7 @@ async def main():
             # print metadata about each pair symbols
             meta_data = asyncio.create_task(metadata())
             # print stats for trades and orders
-            statistics = asyncio.create_task(stats())
+            statistics = asyncio.create_task(print_stats(trades_count_5min, orders_count_5min))
             while True:
                 data = await ws.recv()
                 try:
