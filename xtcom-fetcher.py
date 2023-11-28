@@ -19,14 +19,12 @@ if len(args) > 0:
 			MODE = "FUTURES"
 			# get all available symbol pairs
 			currency_url = 'https://dapi.xt.com/future/market/v3/public/symbol/list'
-
 			WS_URL = 'wss://fstream.xt.com/ws/market?type=SYMBOL'
 			break
 else:
 	MODE = "SPOT"
 	# get all available symbol pairs
 	currency_url = 'https://sapi.xt.com/v4/public/symbol'
-
 	WS_URL = 'wss://stream.xt.com/public'
 
 
@@ -35,14 +33,13 @@ currencies = answer.json()
 list_currencies = list()
 is_subscribed_orderbooks = {}
 is_subscribed_trades = {}
-
 # check if the certain symbol pair is available
 for element in currencies["result"]["symbols"]:
 	if MODE == "SPOT" and element["state"] == "ONLINE":
 		list_currencies.append(element["symbol"])
 		is_subscribed_trades[element["symbol"]] = False
 		is_subscribed_orderbooks[element["symbol"]] = False
-	elif MODE == "FUTURES" and element["state"] == "ONLINE" and element["productType"] == "perpetual":
+	elif MODE == "FUTURES" and element["productType"] == "perpetual":
 		list_currencies.append(element["symbol"])
 		is_subscribed_trades[element["symbol"]] = False
 		is_subscribed_orderbooks[element["symbol"]] = False
@@ -67,8 +64,8 @@ async def metadata():
 
 			print(pair_data, flush=True)
 		elif MODE == 'FUTURES':
-			pair_data = '@MD ' + pair["baseCurrency"].upper() + '_' + pair["quoteCurrency"].upper() + ' perpetual ' + \
-						pair["baseCurrency"].upper() + ' ' + pair["quoteCurrency"].upper() + \
+			pair_data = '@MD ' + pair["baseCoin"].upper() + '_' + pair["quoteCoin"].upper() + ' perpetual ' + \
+						pair["baseCoin"].upper() + ' ' + pair["quoteCoin"].upper() + \
 						' ' + str(pair['pricePrecision']) + ' 1 1 0 0'
 
 			print(pair_data, flush=True)
@@ -124,10 +121,16 @@ async def subscribe(ws, symbol):
 # put the trade information in output format
 def get_trades(var):
 	trade_data = var
-	print('!', get_unix_time(), trade_data['data']['s'].upper(),
-		  "B" if trade_data['data']["b"] else "S", trade_data['data']['p'],
-		  trade_data['data']["q"], flush=True)
-	symbol_trade_count_for_5_minutes[trade_data['data']['s']] += 1
+	if MODE == "SPOT":
+		print('!', get_unix_time(), trade_data['data']['s'].upper(),
+			  "B" if trade_data['data']["b"] else "S", trade_data['data']['p'],
+			  trade_data['data']["q"], flush=True)
+		symbol_trade_count_for_5_minutes[trade_data['data']['s']] += 1
+	elif MODE == "FUTURES":
+		print('!', get_unix_time(), trade_data['data']['s'].upper(),
+			  "B" if trade_data['data']["m"] == "BID" else "S", trade_data['data']['p'],
+			  trade_data['data']["a"], flush=True)
+		symbol_trade_count_for_5_minutes[trade_data['data']['s']] += 1
 
 # put the orderbook and deltas information in output format
 def get_order_books(var, depth_update):
