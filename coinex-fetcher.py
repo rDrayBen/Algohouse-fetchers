@@ -4,23 +4,50 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 from CommonFunctions.CommonFunctions import get_unix_time, stats
 
-# get all available symbol pairs
+
+#default values
+MODE = "SPOT"
 currency_url = 'https://api.coinex.com/v1/market/info'
+WS_URL = 'wss://stream.xt.com/public'
+
+args = sys.argv[1:]
+if len(args) > 0:
+	for arg in args:
+		if arg.startswith('-') and arg[1:] == "perpetual":
+			MODE = "FUTURES"
+			# get all available symbol pairs
+			currency_url = 'https://api.coinex.com/perpetual/v1/market/list'
+			WS_URL = 'wss://perpetual.coinex.com/'
+			break
+else:
+	MODE = "SPOT"
+	# get all available symbol pairs
+	currency_url = 'https://api.coinex.com/v1/market/info'
+	WS_URL = 'wss://socket.coinex.com/'
+
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://socket.coinex.com/'
 is_subscribed_orderbooks = {}
 is_subscribed_trades = {}
 
+
 # check if the certain symbol pair is available
-for key, value in currencies["data"].items():
-	element = value['name']
-	list_currencies.append(element)
-	is_subscribed_trades[element] = False
-	is_subscribed_orderbooks[element] = False
+if MODE == "SPOT":
+	for key, value in currencies["data"].items():
+		element = value['name']
+		list_currencies.append(element)
+		is_subscribed_trades[element] = False
+		is_subscribed_orderbooks[element] = False
+elif MODE == "FUTURES":
+	for value in currencies["data"]:
+		element = value['name']
+		list_currencies.append(element)
+		is_subscribed_trades[element] = False
+		is_subscribed_orderbooks[element] = False
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -35,7 +62,6 @@ for i in range(len(list_currencies)):
 async def subscribe(ws, symbol):
 	while True:
 		if is_subscribed_trades[symbol] == False:
-			start_time = time.time()
 			id1 = 1
 			id2 = 1000
 			# create the subscription for trades
@@ -73,12 +99,20 @@ async def subscribe(ws, symbol):
 
 # get metadata about each pair of symbols
 async def metadata():
-	for key, value in currencies["data"].items():
-		pair_data = '@MD ' + value['trading_name'] + value['pricing_name'] + ' spot ' + \
-					value['trading_name'] + ' ' + value['pricing_name'] + \
-					' ' + str(value['pricing_decimal']) + ' 1 1 0 0'
+	if MODE == "SPOT":
+		for key, value in currencies["data"].items():
+			pair_data = '@MD ' + value['trading_name'] + value['pricing_name'] + ' spot ' + \
+						value['trading_name'] + ' ' + value['pricing_name'] + \
+						' ' + str(value['pricing_decimal']) + ' 1 1 0 0'
 
-		print(pair_data, flush=True)
+			print(pair_data, flush=True)
+	elif MODE == "FUTURES":
+		for value in currencies["data"]:
+			pair_data = '@MD ' + value['stock'] + value['money'] + ' perpetual ' + \
+						value['stock'] + ' ' + value['money'] + \
+						' ' + str(str(value['tick_size'])[::-1].find('.')) + ' 1 1 0 0'
+
+			print(pair_data, flush=True)
 
 	print('@MDEND')
 
