@@ -4,7 +4,24 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 from CommonFunctions.CommonFunctions import get_unix_time, stats
+
+CURRENT_MODE = 'SPOT'
+
+# Extract command-line arguments starting from index 1
+args = sys.argv[1:]
+
+# Check if there are any arguments
+if len(args) > 0:
+    # Iterate through the arguments
+    for arg in args:
+        # Check if the argument starts with '-'
+        if arg.startswith('-') and arg[1:] == 'perpetual':
+            CURRENT_MODE = 'FUTURES'
+            break
+else:
+    CURRENT_MODE = "SPOT"
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.hitbtc.com/api/3/public/symbol'
@@ -15,27 +32,30 @@ trades_count_5min = {}
 orders_count_5min = {}
 # base web socket url
 WS_URL = 'wss://api.hitbtc.com/api/3/ws/public'
-precision = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 10000000000, 100000000000,
-             1000000000000, 10000000000000, 100000000000000, 1000000000000000, 10000000000000000]
 
 # fill the list with all available symbol pairs on exchange
 for pair_s in currencies:
-    list_currencies.append(pair_s)
+    if CURRENT_MODE == 'SPOT' and currencies[pair_s]['type'] == 'spot':
+        list_currencies.append(pair_s)
+    elif CURRENT_MODE == 'FUTURES' and currencies[pair_s]['type'] == 'futures':
+        list_currencies.append(pair_s)
 
 
 async def metadata():
     for pair in list_currencies:
-        trades_count_5min[pair] = 0
-        orders_count_5min[pair] = 0
         curr = currencies[pair]
-        if curr['type'] == 'spot' and curr['status'] == 'working':
-            prec = 11
-            for i in range(len(precision)):
-                if float(curr['tick_size']) * precision[i] == 1:
-                    prec = i
+        if CURRENT_MODE == 'SPOT' and curr['type'] == 'spot' and curr['status'] == 'working':
             pair_data = '@MD ' + pair + ' spot ' + curr['base_currency'] + ' ' + curr['quote_currency'] + ' ' + \
-                        str(prec) + ' 1 1 0 0'
+                        str(curr['tick_size'].count('0')) + ' 1 1 0 0'
             print(pair_data, flush=True)
+            trades_count_5min[pair] = 0
+            orders_count_5min[pair] = 0
+        elif CURRENT_MODE == 'FUTURES' and curr['type'] == 'futures' and curr['status'] == 'working':
+            pair_data = '@MD ' + pair + ' perpetual ' + curr['underlying'] + ' ' + curr['quote_currency'] + ' ' + \
+                        str(curr['tick_size'].count('0')) + ' 1 1 0 0'
+            print(pair_data, flush=True)
+            trades_count_5min[pair] = 0
+            orders_count_5min[pair] = 0
     print('@MDEND')
 
 
