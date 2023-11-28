@@ -6,27 +6,19 @@ import asyncio
 from CommonFunctions.CommonFunctions import get_unix_time, stats
 import os
 
-# currency_url = 'https://www.fairdesk.com/user/v1/public/spot/settings/product'        #inactive
-# answer = requests.get(currency_url)
-# currencies = answer.json()
+currency_url = 'https://api.fairdesk.com/api/v1/public/spot/pairs'
+answer = requests.get(currency_url)
+currencies = answer.json()
 list_currencies = list()
 WS_URL = 'wss://www.fairdesk.com/ws?token=web.361414.5E4FCAB8020E5E94ED6DF56EB1D128AD'
 
-list_currencies = ["BTCUSDT", "ETHUSDT", "LTCUSDT", "TRXUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "LINKUSDT", "ADAUSDT",
-				   "DOTUSDT", "ETCUSDT", "AAVEUSDT", "CHZUSDT", "LDOUSDT", "ATOMUSDT", "FILUSDT", "SANDUSDT", "ARBUSDT"]
-
-baseCcyName = ["BTC", "ETH", "LTC", "TRX", "BNB", "XRP", "DOGE", "LINK", "ADA",
-				   "DOT", "ETC", "AAVE", "CHZ", "LDO", "ATOM", "FIL", "SAND", "ARB"]
-
-quoteCcyName = "USDT"
-
-tickSize = [0.1, 0.01, 0.01, 1.0E-5, 0.01, 1.0E-4, 1.0E-5, 0.001, 1.0E-4, 0.001, 0.001, 0.01, 1.0E-4, 0.001,
-			0.001, 0.001, 1.0E-4, 0.001]
+for element in currencies["result"]:
+	list_currencies.append(element["base"] + element["target"])
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
 for i in range(len(list_currencies)):
-	symbol_trade_count_for_5_minutes[list_currencies[i].upper()] = 0
+	symbol_trade_count_for_5_minutes[list_currencies[i]] = 0
 
 #for orderbooks count stats
 symbol_orderbook_count_for_5_minutes = {}
@@ -35,10 +27,9 @@ for i in range(len(list_currencies)):
 
 # get metadata about each pair of symbols
 async def metadata():
-	for i in range(len(list_currencies)):
-		pair_data = '@MD ' + list_currencies[i] + ' spot ' + \
-					baseCcyName[i] + ' ' + quoteCcyName + \
-					' ' + str(str(tickSize[i])[::-1].find('.')) + ' 1 1 0 0'
+	for elem in currencies["result"]:
+		pair_data = '@MD ' + elem["base"] + elem["target"] + ' spot ' + \
+					elem["base"] + ' ' + elem["target"] + ' -1 1 1 0 0'
 
 		print(pair_data, flush=True)
 
