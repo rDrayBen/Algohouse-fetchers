@@ -4,19 +4,38 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 from CommonFunctions.CommonFunctions import get_unix_time, stats
 
-# get all available symbol pairs
+#default values
+MODE = "SPOT"
 currency_url = 'https://api.jbex.com/openapi/v1/brokerInfo'
-answer = requests.get(currency_url)
-currencies = answer.json()
-list_currencies = list()
 WS_URL = 'wss://ws.jbex.com/ws/quote/v1'
 
-# check if the certain symbol pair is available
-for element in currencies["symbols"]:
-	if element["status"] == "TRADING":
-		list_currencies.append(element["symbol"])
+args = sys.argv[1:]
+if len(args) > 0:
+	for arg in args:
+		if arg.startswith('-') and arg[1:] == "perpetual":
+			MODE = "FUTURES"
+			# get all available symbol pairs
+			WS_URL = 'wss://ws.jbex.com/ws/quote/v1?lang=zh-cn'
+			list_currencies = ["BTCUSDT", "ETHUSDT"]
+			break
+else:
+	MODE = "SPOT"
+	# get all available symbol pairs
+	currency_url = 'https://api.jbex.com/openapi/v1/brokerInfo'
+	WS_URL = 'wss://ws.jbex.com/ws/quote/v1'
+	answer = requests.get(currency_url)
+	currencies = answer.json()
+	list_currencies = list()
+
+if MODE == "SPOT":
+	# check if the certain symbol pair is available
+	for element in currencies["symbols"]:
+		if element["status"] == "TRADING":
+			list_currencies.append(element["symbol"])
+
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -29,43 +48,81 @@ for i in range(len(list_currencies)):
 	symbol_orderbook_count_for_5_minutes[list_currencies[i]] = 0
 
 async def subscribe(ws, symbol):
-	id1 = 1
-	id2 = 1000
+	if MODE == "SPOT":
+		id1 = 1
+		id2 = 1000
 
-	# create the subscription for trades
-	await ws.send(json.dumps({
-		"symbol": f"{symbol}",
-		"topic": "trade",
-		"event": "sub",
-		"params": {
-			"binary": False
-		}
-	}))
-	id1 += 1
-
-	await asyncio.sleep(0.01)
-
-	if os.getenv("SKIP_ORDERBOOKS") == None:
-		# create the subscription for full orderbooks and updates
+		# create the subscription for trades
 		await ws.send(json.dumps({
 			"symbol": f"{symbol}",
-			"topic": "diffDepth",
+			"topic": "trade",
 			"event": "sub",
 			"params": {
 				"binary": False
 			}
 		}))
-		id2 += 1
+		id1 += 1
+
+		await asyncio.sleep(0.01)
+
+		if os.getenv("SKIP_ORDERBOOKS") == None:
+			# create the subscription for full orderbooks and updates
+			await ws.send(json.dumps({
+				"symbol": f"{symbol}",
+				"topic": "diffDepth",
+				"event": "sub",
+				"params": {
+					"binary": False
+				}
+			}))
+			id2 += 1
+
+	elif MODE == "FUTURES":
+		# create the subscription for trades
+		await ws.send(json.dumps({
+			"id": f"trade301.{symbol.split('USDT')[0]}-SWAP-USDT",
+			"topic": "trade",
+			"event": "sub",
+			"limit": 60,
+			"symbol": f"301.{symbol.split('USDT')[0]}-SWAP-USDT",
+			"params": {
+				"org": 9001,
+				"binary": False
+			}
+		}))
+
+		await asyncio.sleep(0.01)
+
+		if os.getenv("SKIP_ORDERBOOKS") == None:
+			# create the subscription for full orderbooks and updates
+			await ws.send(json.dumps({
+				"id": f"301.{symbol.split('USDT')[0]}-SWAP-USDT1",
+				"topic": "mergedDepth",
+				"event": "sub",
+				"symbol": f"301.{symbol.split('USDT')[0]}-SWAP-USDT",
+				"limit": 22,
+				"params": {
+					"dumpScale": 1,
+					"binary": False
+				}
+			}))
 
 	await asyncio.sleep(300)
 
 # get metadata about each pair of symbols
 async def metadata():
-	for element in currencies["symbols"]:
-		if element["status"] == "TRADING":
-			pair_data = '@MD ' + element['baseAsset'] + element['quoteAsset'] + ' spot ' + \
-						element['baseAsset'] + ' ' + element['quoteAsset'] + \
-						' ' + str(str(element['quotePrecision'])[::-1].find('.')) + ' 1 1 0 0'
+	if MODE == "SPOT":
+		for element in currencies["symbols"]:
+			if element["status"] == "TRADING":
+				pair_data = '@MD ' + element['baseAsset'] + element['quoteAsset'] + ' spot ' + \
+							element['baseAsset'] + ' ' + element['quoteAsset'] + \
+							' ' + str(str(element['quotePrecision'])[::-1].find('.')) + ' 1 1 0 0'
+				print(pair_data, flush=True)
+	elif MODE == "FUTURES":
+		for element in list_currencies:
+			pair_data = '@MD ' + element + ' perpetual ' + \
+						element.split("USDT")[0] + " USDT " + '-1 1 1 0 0'
+
 			print(pair_data, flush=True)
 	print('@MDEND')
 
@@ -76,14 +133,21 @@ def get_trades(var):
 		print('!', get_unix_time(), trade_data['symbol'],
 			  "B" if element['m'] else "S", element['p'],
 			  element["q"], flush=True)
-		symbol_trade_count_for_5_minutes[trade_data['symbol']] += 1
+		if MODE == "SPOT":
+			symbol_trade_count_for_5_minutes[trade_data['symbol']] += 1
+		elif MODE == "FUTURES":
+			symbol_trade_count_for_5_minutes[trade_data['symbol'].split("-")[0]+"USDT"] += 1
 
 # put the orderbook and deltas information in output format
 def get_order_books(var, depth_update):
 	order_data = var
 	if 'a' in order_data['data'][0] and len(order_data['data'][0]["a"]) != 0:
-		symbol_orderbook_count_for_5_minutes[order_data['symbol']] += len(order_data['data'][0]["a"])
-		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'] + ' S '
+		if MODE == "SPOT":
+			symbol_orderbook_count_for_5_minutes[order_data['symbol']] += len(order_data['data'][0]["a"])
+			order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'] + ' S '
+		elif MODE == "FUTURES":
+			symbol_orderbook_count_for_5_minutes[order_data['symbol'].split("-")[0]+"USDT"] += len(order_data['data'][0]["a"])
+			order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'].split("-")[0] + "USDT" + ' S '
 		pq = "|".join(el[1] + "@" + el[0] for el in order_data['data'][0]['a'])
 		answer = order_answer + pq
 		# checking if the input data is full orderbook or just update
@@ -93,8 +157,13 @@ def get_order_books(var, depth_update):
 			print(answer + " R")
 
 	if 'b' in order_data['data'][0] and len(order_data['data'][0]["b"]) != 0:
-		symbol_orderbook_count_for_5_minutes[order_data['symbol']] += len(order_data['data'][0]["b"])
-		order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'] + ' B '
+		if MODE == "SPOT":
+			symbol_orderbook_count_for_5_minutes[order_data['symbol']] += len(order_data['data'][0]["b"])
+			order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'] + ' B '
+		elif MODE == "FUTURES":
+			symbol_orderbook_count_for_5_minutes[order_data['symbol'].split("-")[0] + "USDT"] += len(
+				order_data['data'][0]["b"])
+			order_answer = '$ ' + str(get_unix_time()) + " " + order_data['symbol'].split("-")[0] + "USDT" + ' B '
 		pq = "|".join(el[1] + "@" + el[0] for el in order_data['data'][0]['b'])
 		answer = order_answer + pq
 		# checking if the input data is full orderbook or just update
@@ -149,13 +218,17 @@ async def socket(symbol):
 						elif dataJSON['topic'] == 'trade' and dataJSON['f']:
 							pass
 
-						# if received data is about updates
+						# if received data is about updates (spot)
+						elif dataJSON['topic'] == 'diffDepth' and not dataJSON['f']:
+							get_order_books(dataJSON, depth_update=True)
 						elif dataJSON['topic'] == 'diffDepth' and not dataJSON['f']:
 							get_order_books(dataJSON, depth_update=True)
 
-						# if received data is about orderbooks
-						elif dataJSON['topic'] == 'diffDepth' and dataJSON['f']:
+						# if received data is about orderbooks (futures)
+						elif dataJSON['topic'] == 'mergedDepth' and dataJSON['f']:
 							get_order_books(dataJSON, depth_update=False)
+						elif dataJSON['topic'] == 'mergedDepth' and not dataJSON['f']:
+							get_order_books(dataJSON, depth_update=True)
 
 						else:
 							pass
