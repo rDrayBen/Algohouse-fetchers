@@ -73,10 +73,8 @@ def get_order_books(var, update):
 
 async def heartbeat(ws):
 	while True:
-		await ws.send(json.dumps({
-			"ping"
-		}))
-		await asyncio.sleep(0.05)
+		await ws.send(message="ping")
+		await asyncio.sleep(15)
 
 # trade and orderbook stats output
 async def print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes):
@@ -113,6 +111,7 @@ async def main():
 						}
 					]
 				}))
+				await asyncio.sleep(1)
 				if (os.getenv("SKIP_ORDERBOOKS") == None):
 					# create the subscription for full orderbooks and updates
 					await ws.send(json.dumps({
@@ -128,32 +127,40 @@ async def main():
 			while True:
 				data = await ws.recv()
 
-				dataJSON = json.loads(data)
+				if data != "pong":
 
-				if "event" not in dataJSON:
+					dataJSON = json.loads(data)
 
-					try:
+					if "event" not in dataJSON:
 
-						# if received data is about trades
-						if dataJSON['arg']['channel'] == 'trades':
-							get_trades(dataJSON, start_time)
+						try:
 
-						# if received data is about updates
-						elif dataJSON['arg']['channel'] == 'books' and dataJSON["action"] == "update":
-							get_order_books(dataJSON, update=True)
+							# if received data is about trades
+							if dataJSON['arg']['channel'] == 'trades':
+								get_trades(dataJSON, start_time)
 
-						# if received data is about orderbooks
-						elif dataJSON['arg']['channel'] == 'books' and dataJSON["action"] == "snapshot":
-							get_order_books(dataJSON, update=False)
+							# if received data is about updates
+							elif dataJSON['arg']['channel'] == 'books' and dataJSON["action"] == "update":
+								get_order_books(dataJSON, update=True)
 
-						else:
-							pass
+							# if received data is about orderbooks
+							elif dataJSON['arg']['channel'] == 'books' and dataJSON["action"] == "snapshot":
+								get_order_books(dataJSON, update=False)
 
-					except Exception as ex:
-						print(f"Exception {ex} occurred")
+							else:
+								pass
+
+						except Exception as ex:
+							print(f"Exception {ex} occurred", data)
+							time.sleep(1)
+
+		except asyncio.TimeoutError:
+			print("No data received for 30 seconds. Sending ping.")
+			await ws.send(message="ping")
 
 		except Exception as conn_ex:
 			print(f"Connection exception {conn_ex} occurred")
+			time.sleep(1)
 
 
 asyncio.run(main())
