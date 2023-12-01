@@ -4,18 +4,39 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 from CommonFunctions.CommonFunctions import get_unix_time, stats
 
-# get all available symbol pairs
+#default values
+MODE = "SPOT"
 currency_url = 'https://api.bit.com/spot/v1/instruments'
+WS_URL = 'wss://spot-ws.bit.com'
+
+args = sys.argv[1:]
+if len(args) > 0:
+	for arg in args:
+		if arg.startswith('-') and arg[1:] == "perpetual":
+			MODE = "FUTURES"
+			# get all available symbol pairs
+			currency_url = 'https://api.bit.com/linear/v1/instruments?currency=USDT'
+			WS_URL = 'wss://ws.bit.com'
+			break
+else:
+	MODE = "SPOT"
+	# get all available symbol pairs
+	currency_url = 'https://api.bit.com/spot/v1/instruments'
+	WS_URL = 'wss://spot-ws.bit.com'
+
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://ws.bit.com'
 
 # check if the certain symbol pair is available
 for element in currencies["data"]:
-	list_currencies.append(element["pair"])
+	if MODE == "SPOT":
+		list_currencies.append(element["pair"])
+	elif MODE == "FUTURES":
+		list_currencies.append(element["instrument_id"].split("-PERPETUAL")[0])
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -30,37 +51,94 @@ for i in range(len(list_currencies)):
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in currencies["data"]:
-		pair_data = '@MD ' + pair["base_currency"] + '-' + pair["quote_currency"] + ' spot ' + \
-					pair["base_currency"] + ' ' + pair["quote_currency"] + \
-					' ' + str(str(pair['price_step'])[::-1].find('.')) + ' 1 1 0 0'
+		if MODE == "SPOT":
+			pair_data = '@MD ' + pair["base_currency"] + '-' + pair["quote_currency"] + ' spot ' + \
+						pair["base_currency"] + ' ' + pair["quote_currency"] + \
+						' ' + str(str(pair['price_step'])[::-1].find('.')) + ' 1 1 0 0'
 
-		print(pair_data, flush=True)
+			print(pair_data, flush=True)
+		elif MODE == "FUTURES":
+			pair_data = '@MD ' + pair["base_currency"] + '-' + pair["quote_currency"] + ' perpetual ' + \
+						pair["base_currency"] + ' ' + pair["quote_currency"] + \
+						' ' + str(str(pair['price_step'])[::-1].find('.')) + ' 1 1 0 0'
+
+			print(pair_data, flush=True)
 
 	print('@MDEND')
+
+async def subscribe(ws):
+	var_perp = ""
+	var_pair = "pairs"
+	if MODE == "FUTURES":
+		var_perp = "-PERPETUAL"
+		var_pair = "instruments"
+	for i in range(len(list_currencies)):
+		await ws.send(json.dumps({
+			"type": "subscribe",
+			f"{var_pair}": [
+				f"{list_currencies[i]}" + var_perp
+			],
+			"channels": [
+				"trade"
+			],
+			"interval": "100ms"
+		}))
+		if os.getenv("SKIP_ORDERBOOKS") == None:
+			# create the subscription for full orderbooks and updates
+			await ws.send(json.dumps({
+				"type": "subscribe",
+				f"{var_pair}": [
+					f"{list_currencies[i]}" + var_perp
+				],
+				"channels": [
+					"depth"
+				],
+				"interval": "100ms"
+			}))
+
+
+	await asyncio.sleep(300)
 
 # put the trade information in output format
 def get_trades(var):
 	trade_data = var
 	for element in trade_data['data']:
-		print('!', get_unix_time(), element['instrument_id'].replace("-PERPETUAL", ""),
-			  "B" if element["side"] == "buy" else "S", element['price'],
-			  element["qty"], flush=True)
-		symbol_trade_count_for_5_minutes[element['instrument_id'].replace("-PERPETUAL", "")] += 1
+		if MODE == "SPOT":
+			print('!', get_unix_time(), element['pair'],
+				  "B" if element["side"] == "buy" else "S", element['price'],
+				  element["qty"], flush=True)
+			symbol_trade_count_for_5_minutes[element['pair']] += 1
+		elif MODE == "FUTURES":
+			print('!', get_unix_time(), element['instrument_id'].replace("-PERPETUAL", ""),
+				  "B" if element["side"] == "buy" else "S", element['price'],
+				  element["qty"], flush=True)
+			symbol_trade_count_for_5_minutes[element['instrument_id'].replace("-PERPETUAL", "")] += 1
 
 # put the orderbook and deltas information in output format
 def get_order_books(var, depth_update):
 	order_data = var
 	if (depth_update == False):
 		if 'asks' in order_data['data'] and len(order_data["data"]["asks"]) != 0:
-			symbol_orderbook_count_for_5_minutes[order_data['data']['instrument_id'].replace("-PERPETUAL", "")] += len(order_data["data"]["asks"])
-			order_answer = '$ ' + str(get_unix_time()) + " " + order_data['data']['instrument_id'].replace("-PERPETUAL", "") + ' S '
+			if MODE == "SPOT":
+				symbol_orderbook_count_for_5_minutes[order_data['data']['pair']] += len(order_data["data"]["asks"])
+			elif MODE == "FUTURES":
+				symbol_orderbook_count_for_5_minutes[order_data['data']['instrument_id'].replace("-PERPETUAL", "")] += len(order_data["data"]["asks"])
+			order_answer = '$ ' + str(get_unix_time()) + " " + \
+				order_data['data']['instrument_id'].replace("-PERPETUAL", "") + ' S ' if MODE == "FUTURES" else \
+				'$ ' + str(get_unix_time()) + " " + order_data['data']['pair'] + ' S '
 			pq = "|".join(el[1] + "@" + el[0] for el in order_data["data"]["asks"])
 			answer = order_answer + pq
 			print(answer + " R")
 
 		if 'bids' in order_data['data'] and len(order_data["data"]["bids"]) != 0:
-			symbol_orderbook_count_for_5_minutes[order_data['data']['instrument_id'].replace("-PERPETUAL", "")] += len(order_data["data"]["bids"])
-			order_answer = '$ ' + str(get_unix_time()) + " " + order_data['data']['instrument_id'].replace("-PERPETUAL", "") + ' B '
+			if MODE == "SPOT":
+				symbol_orderbook_count_for_5_minutes[order_data['data']['pair']] += len(order_data["data"]["asks"])
+			elif MODE == "FUTURES":
+				symbol_orderbook_count_for_5_minutes[
+					order_data['data']['instrument_id'].replace("-PERPETUAL", "")] += len(order_data["data"]["asks"])
+			order_answer = '$ ' + str(get_unix_time()) + " " + \
+				order_data['data']['instrument_id'].replace("-PERPETUAL", "") + ' B ' if MODE == "FUTURES" else \
+					'$ ' + str(get_unix_time()) + " " + order_data['data']['pair'] + ' B '
 			pq = "|".join(el[1] + "@" + el[0] for el in order_data["data"]["bids"])
 			answer = order_answer + pq
 			print(answer + " R")
@@ -68,19 +146,31 @@ def get_order_books(var, depth_update):
 	if (depth_update == True):
 		index_sell = False
 		index_buy = False
-		if order_data['data']["changes"][0][0] == "sell" and len(order_data["data"]["changes"]) != 0:
-			order_answer_S = '$ ' + str(get_unix_time()) + " " + order_data['data']['instrument_id'].replace("-PERPETUAL", "") + ' S '
-			order_answer_B = '$ ' + str(get_unix_time()) + " " + order_data['data']['instrument_id'].replace("-PERPETUAL", "") + ' B '
+		if len(order_data["data"]["changes"]) != 0:
+			order_answer_S = '$ ' + str(get_unix_time()) + " " + \
+				order_data['data']['instrument_id'].replace("-PERPETUAL", "") + ' S ' if MODE == "FUTURES" else \
+				'$ ' + str(get_unix_time()) + " " + order_data['data']['pair'] + ' S '
+			order_answer_B = '$ ' + str(get_unix_time()) + " " + \
+				order_data['data']['instrument_id'].replace("-PERPETUAL", "") + ' B ' if MODE == "FUTURES" else \
+				'$ ' + str(get_unix_time()) + " " + order_data['data']['pair'] + ' B '
 			pq_el_S = []
 			pq_el_B = []
 			for el in order_data["data"]["changes"]:
 				if (el[0] == "sell"):
 					index_sell = True
-					symbol_orderbook_count_for_5_minutes[order_data['data']['instrument_id'].replace("-PERPETUAL", "")] += 1
+					if MODE == "SPOT":
+						symbol_orderbook_count_for_5_minutes[order_data['data']['pair']] += 1
+					elif MODE == "FUTURES":
+						symbol_orderbook_count_for_5_minutes[
+							order_data['data']['instrument_id'].replace("-PERPETUAL", "")] += 1
 					pq_el_S.append(el[2] + "@" + el[1])
 				elif (el[0] == "buy"):
 					index_buy = True
-					symbol_orderbook_count_for_5_minutes[order_data['data']['instrument_id'].replace("-PERPETUAL", "")] += 1
+					if MODE == "SPOT":
+						symbol_orderbook_count_for_5_minutes[order_data['data']['pair']] += 1
+					elif MODE == "FUTURES":
+						symbol_orderbook_count_for_5_minutes[
+							order_data['data']['instrument_id'].replace("-PERPETUAL", "")] += 1
 					pq_el_B.append(el[2] + "@" + el[1])
 			pq_S = "|".join(pq_el_S)
 			pq_B = "|".join(pq_el_B)
@@ -121,30 +211,8 @@ async def main():
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 
-			for i in range(len(list_currencies)):
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"type": "subscribe",
-					"instruments": [
-						f"{list_currencies[i]}" + "-PERPETUAL"
-					],
-					"channels": [
-						"trade"
-					],
-					"interval": "100ms"
-				}))
-				if os.getenv("SKIP_ORDERBOOKS") == None:
-					# create the subscription for full orderbooks and updates
-					await ws.send(json.dumps({
-						"type": "subscribe",
-						"instruments": [
-							f"{list_currencies[i]}" + "-PERPETUAL"
-						],
-						"channels": [
-							"depth"
-						],
-						"interval": "100ms"
-					}))
+			# create task to subscribe to symbols` pair
+			subscription = asyncio.create_task(subscribe(ws))
 
 			while True:
 
