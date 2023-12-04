@@ -4,16 +4,38 @@ import websockets
 import time
 import asyncio
 import os
+import sys
 from CommonFunctions.CommonFunctions import get_unix_time, stats
 
+#default values
+MODE = "SPOT"
 currency_url = 'https://api.cointr.pro/v1/spot/public/instruments'
+WS_URL = 'wss://www.cointr.pro/ws'
+
+args = sys.argv[1:]
+if len(args) > 0:
+	for arg in args:
+		if arg.startswith('-') and arg[1:] == "perpetual":
+			MODE = "FUTURES"
+			# get all available symbol pairs
+			currency_url = 'https://api.cointr.pro/v1/futures/public/instruments'
+			WS_URL = 'wss://www.cointr.pro/ws'
+			break
+else:
+	MODE = "SPOT"
+	# get all available symbol pairs
+	currency_url = 'https://api.cointr.pro/v1/spot/public/instruments'
+	WS_URL = 'wss://www.cointr.pro/ws'
+
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://www.cointr.pro/ws'
 
 for element in currencies["data"]:
-	list_currencies.append(element["instId"])
+	if MODE == "SPOT":
+		list_currencies.append(element["instId"])
+	elif MODE == "FUTURES":
+		list_currencies.append(element["instId"])
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -28,38 +50,67 @@ for i in range(len(list_currencies)):
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in currencies["data"]:
-		pair_data = '@MD ' + pair["baseCcy"] + pair["quoteCcy"] + ' spot ' + \
-					pair["baseCcy"] + ' ' + pair["quoteCcy"] + \
-					' ' + str(pair["pxPrecision"]) + ' 1 1 0 0'
+		if MODE == 'SPOT':
+			pair_data = '@MD ' + pair["baseCcy"] + pair["quoteCcy"] + ' spot ' + \
+						pair["baseCcy"] + ' ' + pair["quoteCcy"] + \
+						' ' + str(pair["pxPrecision"]) + ' 1 1 0 0'
 
-		print(pair_data, flush=True)
+			print(pair_data, flush=True)
+		elif MODE == 'FUTURES':
+			pair_data = '@MD ' + pair["baseCcy"] + pair["quoteCcy"] + ' perpetual ' + \
+						pair["baseCcy"] + ' ' + pair["quoteCcy"] + \
+						' ' + str(pair["pxPrecision"]) + ' 1 1 0 0'
 
+			print(pair_data, flush=True)
 	print('@MDEND')
 
 
 async def subscribe(ws, symbol):
-	if os.getenv("SKIP_ORDERBOOKS") == None:
-		# create the subscription for full orderbooks and updates
+	if MODE == 'SPOT':
+		if os.getenv("SKIP_ORDERBOOKS") == None:
+			# create the subscription for full orderbooks and updates
+			await ws.send(json.dumps({
+				"args": [{
+					"limit": 30,
+					"step": "0.001",
+					"instId": f"{symbol}"
+				}],
+				"channel": "spot_depth",
+				"op": "subscribe"
+			}))
+
+			await asyncio.sleep(0.001)
+
+		# create the subscription for trades
 		await ws.send(json.dumps({
 			"args": [{
-				"limit": 30,
-				"step": "0.001",
 				"instId": f"{symbol}"
 			}],
-			"channel": "spot_depth",
+			"channel": "spot_trade",
 			"op": "subscribe"
 		}))
+	elif MODE == 'FUTURES':
+		if os.getenv("SKIP_ORDERBOOKS") == None:
+			# create the subscription for full orderbooks and updates
+			await ws.send(json.dumps({
+				"args": [{
+					"limit": 30,
+					"step": "0.001",
+					"instId": f"{symbol}"
+				}],
+				"channel": "future_depth",
+				"op": "subscribe"
+			}))
 
-		await asyncio.sleep(0.001)
+			await asyncio.sleep(0.001)
 
-	# create the subscription for trades
-	await ws.send(json.dumps({
-		"args": [{
-			"instId": f"{symbol}"
-		}],
-		"channel": "spot_trade",
-		"op": "subscribe"
-	}))
+		# create the subscription for trades
+		await ws.send(json.dumps({
+			"args": [{
+				"instId": f"{symbol}"
+			}],
+			"channel": "future_trade",
+			"op": "subscribe"}))
 
 	await asyncio.sleep(300)
 
@@ -136,13 +187,19 @@ async def socket(symbol):
 						# if received data is about trades
 						if dataJSON['channel'] == 'spot_trade' and dataJSON['action'] == "update":
 							get_trades(dataJSON)
+						if dataJSON['channel'] == 'future_trade' and dataJSON['action'] == "update":
+							get_trades(dataJSON)
 
 						# if received data is about updates
 						if dataJSON['channel'] == 'spot_depth' and dataJSON['action'] == "update":
 							get_order_books(dataJSON, update=True)
+						if dataJSON['channel'] == 'future_depth' and dataJSON['action'] == "update":
+							get_order_books(dataJSON, update=True)
 
 						# if received data is about orderbooks
 						if dataJSON['channel'] == 'spot_depth' and dataJSON['action'] == "snapshot":
+							get_order_books(dataJSON, update=False)
+						if dataJSON['channel'] == 'future_depth' and dataJSON['action'] == "snapshot":
 							get_order_books(dataJSON, update=False)
 
 						else:
