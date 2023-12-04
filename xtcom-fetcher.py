@@ -27,22 +27,17 @@ else:
 	currency_url = 'https://sapi.xt.com/v4/public/symbol'
 	WS_URL = 'wss://stream.xt.com/public'
 
-
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-is_subscribed_orderbooks = {}
-is_subscribed_trades = {}
+
 # check if the certain symbol pair is available
 for element in currencies["result"]["symbols"]:
 	if MODE == "SPOT" and element["state"] == "ONLINE":
 		list_currencies.append(element["symbol"])
-		is_subscribed_trades[element["symbol"]] = False
-		is_subscribed_orderbooks[element["symbol"]] = False
+
 	elif MODE == "FUTURES" and element["productType"] == "perpetual":
 		list_currencies.append(element["symbol"])
-		is_subscribed_trades[element["symbol"]] = False
-		is_subscribed_orderbooks[element["symbol"]] = False
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -73,49 +68,42 @@ async def metadata():
 	print('@MDEND')
 
 async def subscribe(ws, symbol):
-	while True:
-		if is_subscribed_trades[symbol] == False:
 
-			# create the subscription for trades
-			await ws.send(json.dumps({
-				"method": "subscribe",
-				"params": [
-					f"trade@{symbol}"
-				],
-				"id": "1"
-			}))
+	# create the subscription for trades
+	await ws.send(json.dumps({
+		"method": "subscribe",
+		"params": [
+			f"trade@{symbol}"
+		],
+		"id": "1"
+	}))
 
-			await asyncio.sleep(0.1)
+	await asyncio.sleep(0.1)
 
-
-		# resubscribe if orderbook subscription is not active + possibility to not subscribe or report orderbook changes:
-		if is_subscribed_orderbooks[symbol] == False and os.getenv("SKIP_ORDERBOOKS") == None:
-			await ws.send(json.dumps({
-				"method": "subscribe",
-				"params": [
-					f"depth@{symbol},50"
-				],
-				"id": "2"
-			}))
-
-			await asyncio.sleep(0.1)
-
-			# create the subscription for updates
-			await ws.send(json.dumps({
+	# possibility to not subscribe or report orderbook changes:
+	if os.getenv("SKIP_ORDERBOOKS") == None:
+		await ws.send(json.dumps({
 			"method": "subscribe",
 			"params": [
-				f"depth_update@{symbol}"
+				f"depth@{symbol},50"
 			],
-			"id": "3"
-			}))
+			"id": "2"
+		}))
 
-			await asyncio.sleep(0.1)
+		await asyncio.sleep(0.1)
 
+		# create the subscription for updates
+		await ws.send(json.dumps({
+		"method": "subscribe",
+		"params": [
+			f"depth_update@{symbol}"
+		],
+		"id": "3"
+		}))
 
-		is_subscribed_trades[symbol] = False
-		is_subscribed_orderbooks[symbol] = False
+		await asyncio.sleep(0.1)
 
-		await asyncio.sleep(2000)
+	await asyncio.sleep(300)
 
 
 # put the trade information in output format
@@ -161,7 +149,7 @@ def get_order_books(var, depth_update):
 async def heartbeat(ws):
 	while True:
 		await ws.send(message="ping")
-		await asyncio.sleep(14)
+		await asyncio.sleep(10)
 
 
 # trade and orderbook stats output
@@ -182,31 +170,25 @@ async def socket(symbol):
 			# create task to keep connection alive
 			pong = asyncio.create_task(heartbeat(ws))
 			# create task to subscribe trades and orderbooks
-			subscription = asyncio.create_task(subscribe(ws,symbol))
+			subscription = asyncio.create_task(subscribe(ws, symbol))
 
 			async for data in ws:
 				try:
-
 					data = await ws.recv()
 
-					if(data != "pong"):
+					if data != "pong" and "topic" in data:
 						dataJSON = json.loads(data)
-
-					if "topic" in dataJSON:
 
 						# if received data is about trades
 						if dataJSON['topic'] == 'trade':
-							is_subscribed_trades[dataJSON['data']['s']] = True
 							get_trades(dataJSON)
 
 						# if received data is about updates
 						elif dataJSON['topic'] == 'depth_update':
-							is_subscribed_orderbooks[dataJSON['data']['s']] = True
 							get_order_books(dataJSON, depth_update=True)
 
 						# if received data is about orderbooks
 						elif dataJSON['topic'] == 'depth':
-							is_subscribed_orderbooks[dataJSON['data']['s']] = True
 							get_order_books(dataJSON, depth_update=False)
 
 						else:
