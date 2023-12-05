@@ -41,7 +41,7 @@ def get_trades(var):
 	trade_data = var
 	if 'event' in trade_data:
 		print('!', get_unix_time(), trade_data["symbol"],
-				"B" if trade_data["isBuyerMaker"] == True else "S", str("{:.8f}".format(int(trade_data["price"]))),
+				"B" if trade_data["isBuyerMaker"] == True else "S", str("{:.8f}".format(float(trade_data["price"]))),
 				str(trade_data["qty"]), flush=True)
 		symbol_trade_count_for_5_minutes[trade_data["symbol"]] += 1
 
