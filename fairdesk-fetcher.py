@@ -5,15 +5,41 @@ import time
 import asyncio
 from CommonFunctions.CommonFunctions import get_unix_time, stats
 import os
+import sys
 
+#default values
+MODE = "SPOT"
 currency_url = 'https://api.fairdesk.com/api/v1/public/spot/pairs'
+WS_URL = 'wss://www.fairdesk.com/ws?token=web.361414.5E4FCAB8020E5E94ED6DF56EB1D128AD'
+
+args = sys.argv[1:]
+if len(args) > 0:
+	for arg in args:
+		if arg.startswith('-') and arg[1:] == "perpetual":
+			MODE = "FUTURES"
+			# get all available symbol pairs
+			currency_url = 'https://api.fairdesk.com/api/v1/public/products'
+			WS_URL = 'wss://www.fairdesk.com/ws?token=web.361414.4619BA2207420942988E6D82BC038CEE'
+			break
+else:
+	MODE = "SPOT"
+	# get all available symbol pairs
+	currency_url = 'https://api.fairdesk.com/api/v1/public/spot/pairs'
+	WS_URL = 'wss://www.fairdesk.com/ws?token=web.361414.5E4FCAB8020E5E94ED6DF56EB1D128AD'
+	answer = requests.get(currency_url)
+	currencies = answer.json()
+	list_currencies = list()
+
 answer = requests.get(currency_url)
 currencies = answer.json()
 list_currencies = list()
-WS_URL = 'wss://www.fairdesk.com/ws?token=web.361414.5E4FCAB8020E5E94ED6DF56EB1D128AD'
 
-for element in currencies["result"]:
-	list_currencies.append(element["base"] + element["target"])
+if MODE == "SPOT":
+	for element in currencies["result"]:
+		list_currencies.append(element["base"] + element["target"])
+elif MODE == "FUTURES":
+	for element in currencies["data"]:
+		list_currencies.append(element["symbol"].upper())
 
 #for trades count stats
 symbol_trade_count_for_5_minutes = {}
@@ -27,11 +53,19 @@ for i in range(len(list_currencies)):
 
 # get metadata about each pair of symbols
 async def metadata():
-	for elem in currencies["result"]:
-		pair_data = '@MD ' + elem["base"] + elem["target"] + ' spot ' + \
-					elem["base"] + ' ' + elem["target"] + ' -1 1 1 0 0'
+	if MODE == "SPOT":
+		for elem in currencies["result"]:
+			pair_data = '@MD ' + elem["base"] + elem["target"] + ' spot ' + \
+						elem["base"] + ' ' + elem["target"] + ' -1 1 1 0 0'
 
-		print(pair_data, flush=True)
+			print(pair_data, flush=True)
+
+	elif MODE == "FUTURES":
+		for elem in currencies["data"]:
+			pair_data = '@MD ' + elem["symbol"].upper() + ' perpetual ' + \
+						elem["baseCurrency"] + ' ' + elem["quoteCurrency"] + ' -1 1 1 0 0'
+
+			print(pair_data, flush=True)
 
 	print('@MDEND')
 
@@ -94,22 +128,40 @@ async def main():
 			pong = asyncio.create_task(heartbeat(ws))
 
 			for i in range(len(list_currencies)):
-				# create the subscription for trades
-				await ws.send(json.dumps({
-					"method": "SUBSCRIBE",
-					"params": [
-						"web.361414.5E4FCAB8020E5E94ED6DF56EB1D128AD",
-						f"{list_currencies[i].lower()}@spotTrade"
-				]}))
-
-				if os.getenv("SKIP_ORDERBOOKS") == None:
-					# create the subscription for full orderbooks
+				if MODE == "SPOT":
+					# create the subscription for trades
 					await ws.send(json.dumps({
 						"method": "SUBSCRIBE",
 						"params": [
 							"web.361414.5E4FCAB8020E5E94ED6DF56EB1D128AD",
-							f"{list_currencies[i].lower()}@spotDepth100"
-						]}))
+							f"{list_currencies[i].lower()}@spotTrade"
+					]}))
+
+					if os.getenv("SKIP_ORDERBOOKS") == None:
+						# create the subscription for full orderbooks
+						await ws.send(json.dumps({
+							"method": "SUBSCRIBE",
+							"params": [
+								"web.361414.5E4FCAB8020E5E94ED6DF56EB1D128AD",
+								f"{list_currencies[i].lower()}@spotDepth100"
+							]}))
+				elif MODE == "FUTURES":
+					# create the subscription for trades
+					await ws.send(json.dumps({
+						"method": "SUBSCRIBE",
+						"params": [
+							"web.361414.02E4B9508ACD32DC4ACE1E0DAD7E8837",
+							f"{list_currencies[i].lower()}@aggTrade"
+					]}))
+
+					if os.getenv("SKIP_ORDERBOOKS") == None:
+						# create the subscription for full orderbooks
+						await ws.send(json.dumps({
+						"method": "SUBSCRIBE",
+						"params": [
+							"web.361414.02E4B9508ACD32DC4ACE1E0DAD7E8837",
+							f"{list_currencies[i].lower()}@depth50"
+					]}))
 
 			while True:
 				data = await ws.recv()
@@ -120,6 +172,9 @@ async def main():
 					try:
 						# if received data is about trades
 						if dataJSON['e'] == 'trade':
+							get_trades(dataJSON, start_time)
+
+						if dataJSON['e'] == 'aggTrade':
 							get_trades(dataJSON, start_time)
 
 						# if received data is about updates and full orderbooks
