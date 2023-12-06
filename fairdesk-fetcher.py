@@ -63,7 +63,8 @@ async def metadata():
 	elif MODE == "FUTURES":
 		for elem in currencies["data"]:
 			pair_data = '@MD ' + elem["symbol"].upper() + ' perpetual ' + \
-						elem["baseCurrency"] + ' ' + elem["quoteCurrency"] + ' -1 1 1 0 0'
+						elem["baseCurrency"] + ' ' + elem["quoteCurrency"] + \
+						" " + str(str(element['tickSize'])[::-1].find('.')) + ' 1 1 0 0'
 
 			print(pair_data, flush=True)
 
