@@ -31,7 +31,6 @@ else:
 	list_currencies = list()
 
 if MODE == "SPOT":
-	# check if the certain symbol pair is available
 	for element in currencies["symbols"]:
 		if element["status"] == "TRADING":
 			list_currencies.append(element["symbol"])
