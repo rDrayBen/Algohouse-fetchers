@@ -39,7 +39,7 @@ async def metadata():
 def get_trades(var, start_time):
 	trade_data = var
 	elapsed_time = time.time() - start_time
-	if 'data' in trade_data and elapsed_time > 2:
+	if 'data' in trade_data and elapsed_time > 5:
 		for elem in trade_data["data"]:
 			print('!', get_unix_time(), elem['instId'],
 				  "B" if elem["side"] == "buy" else "S", elem['px'],
@@ -153,10 +153,6 @@ async def main():
 						except Exception as ex:
 							print(f"Exception {ex} occurred", data)
 							time.sleep(1)
-
-		except asyncio.TimeoutError:
-			print("No data received for 30 seconds. Sending ping.")
-			await ws.send(message="ping")
 
 		except Exception as conn_ex:
 			print(f"Connection exception {conn_ex} occurred")

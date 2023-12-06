@@ -30,32 +30,33 @@ async def metadata():
 	print('@MDEND')
 
 async def subscribe(ws, symbol):
-	# create the subscription for trades
-	await ws.send(json.dumps({
-		"event": "subscribe",
-		"streams": [
-			f"{symbol.lower()}.trades",
-			f"{symbol.lower()}.update"
-		]
-	}))
+	while True:
+		# create the subscription for trades
+		await ws.send(json.dumps({
+			"event": "subscribe",
+			"streams": [
+				f"{symbol.lower()}.trades",
+				f"{symbol.lower()}.update"
+			]
+		}))
 
-	await ws.send(json.dumps({
-		"event": "subscribe",
-		"streams": [
-			f"{symbol.lower()}.trades",
-			f"{symbol.lower()}.update"
-		]
-	}))
+		await ws.send(json.dumps({
+			"event": "subscribe",
+			"streams": [
+				f"{symbol.lower()}.trades",
+				f"{symbol.lower()}.update"
+			]
+		}))
 
-	await ws.send(json.dumps({
-		"event": "subscribe",
-		"streams": [
-			f"{symbol.lower()}.trades",
-			f"{symbol.lower()}.update"
-		]
-	}))
+		await ws.send(json.dumps({
+			"event": "subscribe",
+			"streams": [
+				f"{symbol.lower()}.trades",
+				f"{symbol.lower()}.update"
+			]
+		}))
 
-	await asyncio.sleep(300)
+		await asyncio.sleep(300)
 
 def get_trades(var, symbol):
 	trade_data = var
@@ -65,13 +66,6 @@ def get_trades(var, symbol):
 				  "B" if elem["taker_type"] == "buy" else "S", elem['price'],
 				  elem["amount"], flush=True)
 			symbol_trade_count_for_5_minutes[symbol] += 1
-
-async def heartbeat(ws):
-	while True:
-		await ws.send(json.dumps({
-			"event": "ping"
-		}))
-		await asyncio.sleep(5)
 
 # trade and orderbook stats output
 async def print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes):
@@ -88,8 +82,6 @@ async def socket(symbol):
 	# create connection with server via base ws url
 	async for ws in websockets.connect(WS_URL, ping_interval=None):
 		try:
-			# create task to keep connection alive
-			pong = asyncio.create_task(heartbeat(ws))
 			# create task to subscribe trades and orderbooks
 			subscription = asyncio.create_task(subscribe(ws, symbol))
 			async for data in ws:
