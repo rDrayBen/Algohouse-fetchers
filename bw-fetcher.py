@@ -71,10 +71,10 @@ async def heartbeat(ws):
 		await ws.send(json.dumps({
 			"channel": "ping",
 			"event": "addChannel",
-			"binary": False,
-			"isZip": False
+			"binary": True,
+			"isZip": True
 			}))
-		await asyncio.sleep(3)
+		await asyncio.sleep(2)
 
 # trade and orderbook stats output
 async def print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes):
