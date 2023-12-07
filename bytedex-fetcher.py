@@ -47,6 +47,8 @@ async def subscribe(ws):
 				]
 			}))
 
+		await asyncio.sleep(0.1)
+
 		# create the subscription for trades
 		await ws.send(json.dumps({
 			"method": "subscribe",
@@ -54,6 +56,10 @@ async def subscribe(ws):
 				f"trades.{list_currencies[i]}"
 			]
 		}))
+
+		await asyncio.sleep(0.1)
+
+	await asyncio.sleep(300)
 
 def get_trades(var, start_time):
 	trade_data = var
