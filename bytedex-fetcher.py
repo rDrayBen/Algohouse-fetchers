@@ -61,10 +61,9 @@ async def subscribe(ws):
 
 	await asyncio.sleep(300)
 
-def get_trades(var, start_time):
+def get_trades(var):
 	trade_data = var
-	elapsed_time = time.time() - start_time
-	if len(trade_data["data"]) != 0 and elapsed_time > 3:
+	if len(trade_data["data"]) != 0 and len(trade_data["data"]) < 3:
 		for elem in trade_data["data"]:
 			print('!', get_unix_time(), trade_data['channel'].split(".")[1],
 				  "B" if elem[3] == 1 else "S", str("{:.8f}".format(elem[1])),
@@ -123,7 +122,6 @@ async def main():
 	while True:
 		async for ws in websockets.connect(WS_URL, ping_interval=None):
 			try:
-				start_time = time.time()
 
 				# create task to subscribe to symbols` pair
 				subscription = asyncio.create_task(subscribe(ws))
@@ -139,7 +137,7 @@ async def main():
 
 							# if received data is about trades
 							if dataJSON["channel"].split(".")[0] == "trades":
-								get_trades(dataJSON, start_time)
+								get_trades(dataJSON)
 
 							# if received data is about orderbook snapshots
 							if dataJSON["channel"].split(".")[0] == "books-delta" and "snapshot" in dataJSON["data"]:
@@ -154,11 +152,6 @@ async def main():
 
 					except Exception as ex:
 						print(f"Exception {ex} occurred")
-
-
-			except websockets.exceptions.ConnectionClosedError:
-				print("WebSocket connection closed. Reconnecting...")
-				await asyncio.sleep(10)
 
 			except Exception as conn_ex:
 				print(f"Connection exception {conn_ex} occurred")
