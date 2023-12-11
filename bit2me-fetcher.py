@@ -14,6 +14,7 @@ list_currencies = list()
 WS_URL = 'wss://ws.bit2me.com/v1/trading'
 
 for element in currencies:
+	#condition to skip blacklisted currencies
 	if SKIP_CURRENCIES(element["symbol"]) == False:
 		list_currencies.append(element["symbol"])
 
