@@ -25,3 +25,10 @@ def stats(trade_count_5_minutes, orderbook_count_5_minutes):
 		orderbook_count_5_minutes[key] = 0
 
 
+#list of currencies to be skipped for certain reasons
+blacklisted_currencies = ["SBTC"]
+def SKIP_CURRENCIES(pair):
+	for elem in blacklisted_currencies:
+		if elem.upper() in pair or elem.lower() in pair:
+			return True
+	return False

@@ -3,7 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
-from CommonFunctions.CommonFunctions import get_unix_time, stats
+from CommonFunctions.CommonFunctions import get_unix_time, stats, SKIP_CURRENCIES
 import os
 
 # get all available symbol pairs
@@ -14,6 +14,7 @@ list_currencies = list()
 WS_URL = 'wss://ws.bit2me.com/v1/trading'
 
 for element in currencies:
+	if SKIP_CURRENCIES(element["symbol"]) == False:
 		list_currencies.append(element["symbol"])
 
 #for trades count stats
@@ -35,10 +36,11 @@ async def subscribe(ws):
 # get metadata about each pair of symbols
 async def metadata():
 	for pair in currencies:
-		pair_data = '@MD ' + pair["symbol"].split("/")[0] + '/' + pair["symbol"].split("/")[1] + ' spot ' + \
-					pair["symbol"].split("/")[0] + ' ' + pair["symbol"].split("/")[0] + \
-					' ' + str(pair['pricePrecision']) + ' 1 1 0 0'
-		print(pair_data, flush=True)
+		if SKIP_CURRENCIES(pair["symbol"]) == False:
+			pair_data = '@MD ' + pair["symbol"].split("/")[0] + '/' + pair["symbol"].split("/")[1] + ' spot ' + \
+						pair["symbol"].split("/")[0] + ' ' + pair["symbol"].split("/")[1] + \
+						' ' + str(pair['pricePrecision']) + ' 1 1 0 0'
+			print(pair_data, flush=True)
 	print('@MDEND')
 
 # put the trade information in output format
