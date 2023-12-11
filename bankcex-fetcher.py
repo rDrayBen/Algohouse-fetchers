@@ -66,7 +66,7 @@ def get_order_books(var):
 async def heartbeat(ws):
 	while True:
 		await ws.send(message='2')
-		await asyncio.sleep(15)
+		await asyncio.sleep(25)
 
 # trade and orderbook stats output
 async def print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes):
