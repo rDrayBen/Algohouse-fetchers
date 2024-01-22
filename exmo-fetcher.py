@@ -4,13 +4,12 @@ import websockets
 import time
 import asyncio
 import os
-from CommonFunctions.CommonFunctions import get_unix_time, stats
+from CommonFunctions.CommonFunctions import *
 
 # get all available symbol pairs from exchange
 currency_url = 'https://api.exmo.com/v1.1/pair_settings'
 answer = requests.get(currency_url)
 currencies = answer.json()
-list_currencies = list()
 check_activity = {}
 trades_count_5min = {}
 orders_count_5min = {}
@@ -42,7 +41,7 @@ def get_trades(message):
         for elem in message['data']:
             print('!', get_unix_time(), coin_name,
                   elem['type'][0].upper(), elem['price'],
-                  elem['amount'], flush=True)
+                  elem['quantity'], flush=True)
 
 
 # function to format order books and deltas(order book updates) format
@@ -83,12 +82,12 @@ async def heartbeat(ws):
         await asyncio.sleep(5)
 
 
-async def subscribe(ws):
+async def subscribe(ws, chunk):
     while True:
         # subscribe for listed topics
         for key, value in check_activity.items():
             # subscribe to all trades
-            if not value:
+            if not value and key in chunk:
                 await ws.send(json.dumps({
                     "method": "subscribe",
                     "topics": [
@@ -102,33 +101,17 @@ async def subscribe(ws):
                             f"spot/order_book_updates:{key}"
                         ]
                     }))
-        for symbol in list(check_activity):
-            check_activity[symbol] = False
+            check_activity[key] = False
         await asyncio.sleep(3000)
 
 
-# trade and orderbook stats output
-async def print_stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes):
-    time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
-    if time_to_wait != 300:
-        await asyncio.sleep(time_to_wait)
-    while True:
-        stats(symbol_trade_count_for_5_minutes, symbol_orderbook_count_for_5_minutes)
-        time_to_wait = (5 - ((time.time() / 60) % 5)) * 60
-        await asyncio.sleep(time_to_wait)
-
-
-async def main():
+async def connect(symbol_chunk):
     # create connection with server via base ws url
     async for ws in websockets.connect(WS_URL, ping_interval=None):
         try:
-            # print metadata about each pair symbols
-            meta_data = asyncio.create_task(metadata())
-            sub_task = asyncio.create_task(subscribe(ws))
+            sub_task = asyncio.create_task(subscribe(ws, symbol_chunk))
             # create task to keep connection alive
             pong = asyncio.create_task(heartbeat(ws))
-            # print stats for trades and orders
-            statistics = asyncio.create_task(print_stats(trades_count_5min, orders_count_5min))
             while True:
                 # receiving data from server
                 data = await ws.recv()
@@ -151,11 +134,29 @@ async def main():
                         print(dataJSON)
                 except Exception as e:
                     print(f"Exception {e} occurred", data)
-                    time.sleep(1)
+                    # time.sleep(1)
         except Exception as conn_e:
             print(f"WARNING: connection exception {conn_e} occurred")
             time.sleep(1)
 
+
+async def connectionHandler():
+    # print metadata about each pair symbols
+    meta_data = asyncio.create_task(metadata())
+    # print stats for trades and orders
+    statistics = asyncio.create_task(print_stats(trades_count_5min, orders_count_5min))
+    chunked_array = chunk_array(list_currencies, 15)
+    tasks = []
+
+    for chunk in chunked_array:
+        task = asyncio.create_task(connect(chunk))
+        tasks.append(task)
+        await asyncio.sleep(1)
+    await asyncio.gather(*tasks)
+
+
+async def main():
+    await connectionHandler()
 
 # run main function
 asyncio.run(main())
