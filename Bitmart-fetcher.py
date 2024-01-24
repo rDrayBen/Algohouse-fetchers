@@ -1,131 +1,129 @@
 import json
 import requests
-import re
 import asyncio
-import time
 import websockets
+import os
 import zlib
-from math import floor
-API_URL = 'https://api-cloud.bitmart.com'
-API_SPOT_SYMBOLS_URL = '/spot/v1/symbols/details'
-API_SPOT_SYMBOLS_BOOK_URL = '/spot/v1/symbols/book'
-WS_URL= 'wss://ws-manager-compress.bitmart.com/api?protocol=1.1'
-WS_PUBLIC_SPOT_TRADE = 'spot/trade'
-WS_PUBLIC_SPOT_DEPTH5 = 'spot/depth5'
-WS_PUBLIC_SPOT_DEPTH50 = 'spot/depth50'
-CONNECTIONS_MAX_SIZE = 10
-TIMEOUT = 0.1
-PING_TIMEOUT = 15
-response = requests.get(API_URL + API_SPOT_SYMBOLS_URL)
-symbols = [x['symbol'] for x in response.json()['data']['symbols']]
-symbol_chunks = []
+from CommonFunctions.CommonFunctions import get_unix_time, print_stats
 
-def divide_on_chunks(symbols, chunk_size=100):
-    chunks_amount = round(len(symbols)/chunk_size)
+API_URL = 'https://api-cloud.bitmart.com/spot/v1'
+API_SPOT_SYMBOLS_URL = '/symbols'
+WS_URL = 'wss://ws-manager-compress.bitmart.com/api?protocol=1.1'
+WS_PUBLIC_SPOT_TRADE = "spot/trade"
+WS_PUBLIC_SPOT_ORDERBOOK = "spot/depth50"
+TIMEOUT = 1
+PING_TIMEOUT = 0.1
+response = requests.get(API_URL + API_SPOT_SYMBOLS_URL)
+symbols = [x for x in response.json()['data']['symbols']]
+symbols_parts = []
+old_trades = {}
+trades_stats = {}
+orderbooks_stats = {}
+for symbol in symbols:
+    old_trades[symbol] = 0
+    trades_stats[symbol.upper()] = 0
+    orderbooks_stats[symbol.upper()] = 0
+
+
+def divide_on_parts(symbols, part_size=100):
+    parts_amount = round(len(symbols)/part_size)
     last = 0
-    for i in range(chunks_amount):
-        symbol_chunks.append(symbols[i*chunk_size:chunk_size*(i+1)])
-        last = chunk_size*(i+1)
+    for i in range(parts_amount):
+        symbols_parts.append(symbols[i*part_size:part_size*(i+1)])
+        last = part_size*(i+1)
     if len(symbols) - last > 0:
-        symbol_chunks.append(symbols[last: len(symbols)])
-def convert(message):
-    if type(message) == bytes:
-        return inflate(message)
-    else:
-        return message
-def inflate(data):
-    decompress = zlib.decompressobj(
-            -zlib.MAX_WBITS
-    )
-    inflated = decompress.decompress(data)
-    inflated += decompress.flush()
-    return inflated.decode('UTF-8')
+        symbols_parts.append(symbols[last: len(symbols)])
+    
+
 async def meta(response):
     for i in response.json()['data']['symbols']:
-        print("@MD", i['symbol'], "spot", i['base_currency'], i['quote_currency'], i['price_max_precision'],
-              1, 1, 0, 0, end="\n")
+        assets = i.split('_')
+        print("@MD", i.upper(), "spot",
+              assets[0].upper(), assets[1].upper(), -1, 1, 1, 0, 0, end="\n")
     print("@MDEND")
+
+
 async def heartbeat(ws):
     while True:
-        await ws.send(message=json.dumps({"subscribe":"ping"}))
+        await ws.send(message="ping")
         await asyncio.sleep(PING_TIMEOUT)
-async def subscribe(ws, symbols_):
-    for i in range(len(symbols_)):
-        await ws.send(message=json.dumps({"op": "subscribe",
-                                          "args": [f"{WS_PUBLIC_SPOT_TRADE}:{symbols_[i]}"]}))
-        await asyncio.sleep(TIMEOUT)
-        await ws.send(message=json.dumps({"op": "subscribe",
-                                          "args": [f"{WS_PUBLIC_SPOT_DEPTH5}:{symbols_[i]}"]}))
-        await asyncio.sleep(TIMEOUT)
-        await ws.send(message=json.dumps({"op": "subscribe",
-                                          "args": [f"{WS_PUBLIC_SPOT_DEPTH50}:{symbols_[i]}"]}))
-        await asyncio.sleep(TIMEOUT)
+
+
 def print_trades(data):
     try:
-        if len(data['data']) >= 30:
-            return
         for i in data['data']:
-            if i['side'] == "buy":
-                print("!", round(time.time() * 1000), i['symbol'].replace("_", "-"), 'B', i['price'],
-                      i['size'], end='\n')
-            else:
-                print("!", round(time.time() * 1000), i['symbol'].replace("_", "-"), 'S', i['price'],
-                      i['size'], end='\n')
+            print('!', get_unix_time(),
+                  i['symbol'], i['side'][0].upper(), i['price'], i['size'])
+            trades_stats[i['symbol']] += 1
     except:
         pass
-def print_orderbook(data):
-    try:
-        asks = data['data'][0]['asks']
-        bids = data['data'][0]['bids']
-        if data['table'] == WS_PUBLIC_SPOT_DEPTH50:
-            print("$", round(time.time() * 1000), data['data'][0]['symbol'].replace('_', '-'), 'B',
-                      re.sub(r".$", "", ''.join(str(x[1]) + "@" + str(x[0]) + "|" for x in bids))
-                      ,'R', end='\n')
-            print("$", round(time.time() * 1000), data['data'][0]['symbol'].replace('_', '-'), 'S',
-                      re.sub(r".$", "", ''.join(str(x[1]) + "@" + str(x[0]) + "|" for x in asks))
-                      ,'R', end='\n')
 
-        elif data['table'] == WS_PUBLIC_SPOT_DEPTH5:
-            print("$", round(time.time() * 1000), data['data'][0]['symbol'].replace('_', '-'), 'B',
-                  re.sub(r".$", "", ''.join(str(x[1]) + "@" + str(x[0]) + "|" for x in bids))
-                  , end='\n')
-            print("$", round(time.time() * 1000), data['data'][0]['symbol'].replace('_', '-'), 'S',
-                  re.sub(r".$", "", ''.join(str(x[1]) + "@" + str(x[0]) + "|" for x in asks))
-                  , end='\n')
+
+def print_orderbooks(data):
+    try:
+        for data_part in data['data']:
+            if data_part['asks'] != []:
+                print('$', get_unix_time(), data_part['symbol'], 'S',
+                        '|'.join(i[1] + '@' + i[0] for i in data_part['asks']), 'R')
+                orderbooks_stats[data_part['symbol']] += 1
+            if data_part['bids'] != []:
+                print('$', get_unix_time(), data_part['symbol'], 'B',
+                        '|'.join(i[1] + '@' + i[0] for i in data_part['bids']), 'R')
+                orderbooks_stats[data_part['symbol']] += 1
     except:
         pass
+
+
+async def subscribe(ws, symbols_):
+    for symbol in symbols_:
+        await ws.send(message=json.dumps({
+            "op": "subscribe",
+            "args": [f"{WS_PUBLIC_SPOT_TRADE}:{symbol}"]
+        }))
+        await asyncio.sleep(TIMEOUT)
+        if (os.getenv("SKIP_ORDERBOOKS") == None):  # don't subscribe or report orderbook changes
+            await ws.send(message=json.dumps({
+                "op": "subscribe",
+                "args": [f"{WS_PUBLIC_SPOT_ORDERBOOK}:{symbol}"]
+            }))
+            await asyncio.sleep(TIMEOUT)
+
 
 async def handle_socket(symbol):
-    async for ws in websockets.connect(WS_URL):
+    async for ws in websockets.connect(WS_URL, ping_interval=None):
         try:
             sub_task = asyncio.create_task(subscribe(ws, symbol))
-            ping_task = asyncio.create_task(heartbeat(ws))
-            async for message in ws:
+            #ping_task = asyncio.create_task(heartbeat(ws))
+            while True:
                 try:
-                    decoded_data = convert(message)
-                    dataJSON = json.loads(decoded_data)
-                    if dataJSON['table'] == WS_PUBLIC_SPOT_TRADE:
-                        print_trades(dataJSON)
-                    if dataJSON['table'] == WS_PUBLIC_SPOT_DEPTH5:
-                        print_orderbook(dataJSON)
-                    if dataJSON['table'] == WS_PUBLIC_SPOT_DEPTH50:
-                        print_orderbook(dataJSON)
-                except KeyboardInterrupt:
-                    exit(0)
+                    data = await ws.recv()
+                    data_json = json.loads(data)
+                    if data_json['table'] == WS_PUBLIC_SPOT_TRADE:
+                        if old_trades[data_json['data'][0]['symbol']] < 2:
+                            old_trades[data_json['data'][0]['symbol']] += 1
+                        else:
+                            print_trades(data_json)
+                    if data_json['table'] == WS_PUBLIC_SPOT_ORDERBOOK:
+                        print_orderbooks(data_json)
                 except:
-                    pass
+                    continue
         except KeyboardInterrupt:
             print("Keyboard Interupt")
             exit(1)
         except Exception as conn_c:
             print(f"WARNING: connection exception {conn_c} occurred")
+            await asyncio.sleep(1)
             continue
+
 
 async def handler():
     meta_task = asyncio.create_task(meta(response))
-    divide_on_chunks(symbols, 100)
-    await asyncio.wait([asyncio.create_task(handle_socket(symbol)) for symbol in symbol_chunks[0:10]])
+    stats_task = asyncio.create_task(print_stats(trades_stats, orderbooks_stats))
+    divide_on_parts(symbols, int(len(symbols) // 10))
+    await asyncio.wait([asyncio.create_task(handle_socket(symbol)) for symbol in symbols_parts])
 
-def main():
-    asyncio.get_event_loop().run_until_complete(handler())
-main()
+
+async def main():
+    await handler()
+
+asyncio.run(main())
