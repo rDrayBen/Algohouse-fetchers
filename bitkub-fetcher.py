@@ -3,6 +3,7 @@ import requests
 import websockets
 import time
 import asyncio
+from CommonFunctions.CommonFunctions import get_unix_time, print_stats
 
 currency_url = 'https://api.bitkub.com/api/market/symbols'
 answer = requests.get(currency_url)
@@ -13,12 +14,14 @@ WS_URL = 'wss://api.bitkub.com/websocket-api/'
 WS_URL_trades = WS_URL + f"market.trade."
 WS_URL_orderbooks = WS_URL + f"orderbook/"
 
+trades_stats = {}
+orderbooks_stats = {}
 
-for element in currencies["data"]:
+for element in currencies["result"]:
 	list_currencies.append(element["symbol"])
-
-for element in currencies["data"]:
-	list_currencies_id.append(element["pairing_id"])
+	list_currencies_id.append(element["id"])
+	trades_stats[element["symbol"].upper()] = 0
+	orderbooks_stats[element["symbol"].upper()] = 0
 
 
 currency_dict = {currency: currency_id for currency, currency_id in zip(list_currencies, list_currencies_id)}
@@ -35,27 +38,23 @@ def create_orderbook_chanels(symbol_id: int):
 response = requests.get(currency_url)
 trade_messages = [create_trades_chanels(x) for x in list_currencies]
 orderbook_messages = [create_orderbook_chanels(x) for x in list_currencies_id]
-symbols_ = {x['pairing_id']: x['symbol'] for x in response.json()['data']}
+symbols_ = {x['id']: x['symbol'] for x in response.json()['result']}
 
 
 # get metadata about each pair of symbols
 async def metadata():
 	data = requests.get(currency_url)
-	for pair in data.json()['data']:
-		print("@MD", pair['symbol'], "spot", pair["base_asset"], pair["quote_asset"],
-			  str(str(pair['price_step'])[::-1].find('.')), "1", "1", "0", "0", end="\n")
-
+	for pair in data.json()['result']:
+		print("@MD", pair['symbol'], "spot", pair['symbol'].split("_")[0], pair['symbol'].split("_")[1],
+			  "-1", "1", "1", "0", "0", end="\n")
 	print('@MDEND')
-
-
-def get_unix_time():
-	return round(time.time() * 1000)
 
 
 def print_trade(var):
 	trade_data = var
 	print("!", get_unix_time(), trade_data['sym'], "B" if trade_data['txn'].find("SELL") == -1 else "S", trade_data['rat'],
 		  "{:f}".format(trade_data['amt']).rstrip('0').rstrip('.'), end="\n")
+	trades_stats[trade_data['sym'].upper()] += 1
 
 
 def print_orderbook(var, askschanged):
@@ -88,6 +87,7 @@ def print_orderbook(var, askschanged):
 			index += 1
 		order_answer = order_answer1 + order_answer2
 		print(order_answer + " R")
+		orderbooks_stats[symbol.upper()] += 1
 
 	if askschanged == False:
 		order_answer1 = f"$ {str(get_unix_time())} {symbol} B "
@@ -100,18 +100,17 @@ def print_orderbook(var, askschanged):
 			index += 1
 		order_answer = order_answer1 + order_answer2
 		print(order_answer + " R")
+		orderbooks_stats[symbol.upper()] += 1
 
 
 async def socket(url):
-	# create connection with server via base ws url
-	async with websockets.connect(url) as ws:
+	while True:
 		try:
+			ws = await websockets.connect(url)
 			async for data in ws:
-
-				dataJSON = json.loads(data)
-
-				if 'txn' in dataJSON or 'event' in dataJSON:
-					try:
+				try:
+					dataJSON = json.loads(data)
+					if 'txn' in dataJSON or 'event' in dataJSON:
 						if 'txn' in dataJSON:
 							print_trade(dataJSON)
 						elif dataJSON['event'] == "askschanged":
@@ -120,21 +119,22 @@ async def socket(url):
 							print_orderbook(dataJSON, askschanged=False)
 						else:
 							pass
-					except Exception as ex:
-						print(f"Exception {ex} occurred", data)
-						time.sleep(1)
-				else:
-					pass
-		except Exception as conn_ex:
-			if conn_ex.split(":")[0] == "Extra data":
-				pass
-			else:
-				print(f"Connection exception {conn_ex} occurred")
-				time.sleep(1)
+				except Exception as e:
+					print(f"Exception: {e}")
+					break
+		except KeyboardInterrupt:
+			print("Keyboard Interupt")
+			exit(1)
+		except Exception as conn_c:
+			print(f"WARNING: connection exception {conn_c} occurred")
+			await ws.close()
+			await asyncio.sleep(1)
+			continue
 
 
 async def handler():
 	meta_data = asyncio.create_task(metadata())
+	stats_task = asyncio.create_task(print_stats(trades_stats, orderbooks_stats))
 	tasks = []
 	for element in trade_messages + orderbook_messages:
 		tasks.append(asyncio.create_task(socket(element)))
